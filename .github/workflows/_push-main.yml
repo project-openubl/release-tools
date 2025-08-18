@@ -22,7 +22,7 @@ jobs:
       milestone: ${{ steps.filter.outputs.milestone }}
       labels: ${{ steps.filter.outputs.labels }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dorny/paths-filter@v3
         id: filter
         with:
@@ -42,7 +42,7 @@ jobs:
     env:
       GITHUB_TOKEN: ${{ github.token }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: Swatinem/rust-cache@v2
       - name: Get Token
         id: get_workflow_token
@@ -65,7 +65,7 @@ jobs:
     env:
       GITHUB_TOKEN: ${{ github.token }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: Swatinem/rust-cache@v2
       - name: Get Token
         id: get_workflow_token

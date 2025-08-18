@@ -13,7 +13,7 @@ jobs:
     outputs:
       repos: ${{ steps.read_config.outputs.repos }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Get repositories
         id: read_config
         run: |
@@ -35,7 +35,7 @@ jobs:
           application_private_key: ${{ secrets.OPENUBL_BOT_KEY }}
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: ${{ matrix.repo }}
           token: ${{ steps.get_workflow_token.outputs.token }}

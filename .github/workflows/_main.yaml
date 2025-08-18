@@ -16,7 +16,7 @@ jobs:
       milestone: ${{ steps.filter.outputs.milestone }}
       labels: ${{ steps.filter.outputs.labels }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dorny/paths-filter@v3
         id: filter
         with:
@@ -31,7 +31,7 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Set up Rust
         uses: Swatinem/rust-cache@v2
       - name: Crate Format
@@ -51,7 +51,7 @@ jobs:
     env:
       GITHUB_TOKEN: ${{ github.token }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: Swatinem/rust-cache@v2
       - run: RUST_LOG=info cargo run --bin milestones -- --config pkg/config/config.yaml
 
@@ -63,6 +63,6 @@ jobs:
     env:
       GITHUB_TOKEN: ${{ github.token }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: Swatinem/rust-cache@v2
       - run: RUST_LOG=info cargo run --bin labels -- --config pkg/config/config.yaml
