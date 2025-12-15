@@ -104,7 +104,7 @@ jobs:
           fi
 
       - name: Upload Changelog Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: changelog-artifact
           path: release.md
