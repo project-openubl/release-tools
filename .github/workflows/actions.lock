@@ -10,12 +10,12 @@ workflows:
     '.github/workflows/_issues.yaml': []
     '.github/workflows/_main.yaml':
         - 'actions/checkout@v7.0.1'
-        - 'dorny/paths-filter@v3.0.4'
+        - 'dorny/paths-filter@v4.0.3'
         - 'swatinem/rust-cache@v2.9.3'
     '.github/workflows/_pr-closed.yaml': []
     '.github/workflows/_push-main.yml':
         - 'actions/checkout@v7.0.1'
-        - 'dorny/paths-filter@v3.0.4'
+        - 'dorny/paths-filter@v4.0.3'
         - 'peter-murray/workflow-application-token-action@v4.0.1'
         - 'swatinem/rust-cache@v2.9.3'
     '.github/workflows/_verifyPR.yml': []
@@ -92,9 +92,9 @@ dependencies:
         commit: 'sha1-5138f26214adf9d69718655df70f66d2b3c81db3'
         owner_id: 5429470
         repo_id: 288487894
-    'dorny/paths-filter@v3.0.4':
-        ref: 'v3.0.4'
-        commit: 'sha1-0e4a8c6effa4802afeda77dc8d303f8176d7dfad'
+    'dorny/paths-filter@v4.0.3':
+        ref: 'v4.0.3'
+        commit: 'sha1-ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d'
         owner_id: 1588572
         repo_id: 265601040
     'korthout/backport-action@v4.7.1':
