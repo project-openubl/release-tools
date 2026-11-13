@@ -1,9 +1,19 @@
 version: 2
+
+# Dependabot PRs are auto-approved and auto-merged once CI passes
+# (.github/workflows/_auto-merge-dependabot.yaml), so the cooldown keeps freshly published
+# (possibly compromised) releases out; security updates skip it.
+# Groups take minor/patch only, so a breaking major arrives as its own PR.
 updates:
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: "chore"
       include: "scope"
+    groups:
+      github-actions:
+        update-types: ["minor", "patch"]

@@ -1,10 +1,10 @@
 name: PR tests
 
+# `ci` is a required status check on main (Dependabot auto-merge waits for it), so this
+# workflow must run on every PR: a paths-ignore would leave docs-only PRs stuck pending.
 on:
   pull_request:
     branches: ["main"]
-    paths-ignore:
-      - "**.md"
 
 jobs:
   build:

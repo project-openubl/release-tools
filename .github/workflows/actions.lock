@@ -3,6 +3,7 @@
 # Docs: https://gh.io/actions-lockfile
 version: 'v0.0.3'
 workflows:
+    '.github/workflows/_auto-merge-dependabot.yaml': []
     '.github/workflows/_cut-release-branches.yaml':
         - 'actions/checkout@v4.4.0'
         - 'peter-murray/workflow-application-token-action@v4.0.1'
