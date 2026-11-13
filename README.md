@@ -20,6 +20,8 @@ You can find our reusable GitHub Workflows in [./.github/workflows](./.github/wo
 Approves Dependabot PRs with the openubl bot and enables GitHub auto-merge on them. The PR is
 merged only after the repository's **required status checks** pass, so CI stays the gate.
 
+This repository uses it too, via [`_auto-merge-dependabot.yaml`](./.github/workflows/_auto-merge-dependabot.yaml).
+
 To opt in, add `.github/workflows/auto-merge-dependabot.yaml` to your repository:
 
 ```yaml
