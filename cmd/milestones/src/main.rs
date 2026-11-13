@@ -70,7 +70,7 @@ async fn exec() -> crate::error::Result<()> {
         // Fetch all milestones
         let mut page: Page<octocrab::models::Milestone> = client
             .get(
-                format!("/repos/{}/{}/milestones", &repo.org, &repo.repo),
+                format!("/repos/{}/{}/milestones", repo.org, repo.repo),
                 None::<&()>,
             )
             .await?;
@@ -216,7 +216,7 @@ async fn exec() -> crate::error::Result<()> {
 
                 let resp: octocrab::models::Milestone = client
                     .post(
-                        format!("/repos/{}/{}/milestones", &update.org, &update.repo),
+                        format!("/repos/{}/{}/milestones", update.org, update.repo),
                         Some(&payload),
                     )
                     .await?;
@@ -235,7 +235,7 @@ async fn exec() -> crate::error::Result<()> {
                     .patch(
                         &format!(
                             "/repos/{}/{}/milestones/{}",
-                            &update.org, &update.repo, current_number
+                            update.org, update.repo, current_number
                         ),
                         Some(&payload),
                     )
@@ -250,7 +250,7 @@ async fn exec() -> crate::error::Result<()> {
                 .patch(
                     &format!(
                         "/repos/{}/{}/issues/{}",
-                        &update.org, &update.repo, &issue.number
+                        update.org, update.repo, issue.number
                     ),
                     Some(&json!({
                         "milestone": milestone.number,

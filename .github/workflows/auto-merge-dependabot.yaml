@@ -1,0 +1,103 @@
+name: Auto-merge Dependabot PRs
+
+# Reusable workflow: approves a Dependabot PR and enables GitHub's native auto-merge on it.
+# The PR is merged only once the caller repo's required status checks (branch protection /
+# ruleset on the base branch) pass, so CI remains the real gate. A repo with no required checks
+# would merge immediately: configure them before opting in.
+#
+# Approval and auto-merge use the openubl bot App token, not GITHUB_TOKEN: a merge enabled with
+# GITHUB_TOKEN does not trigger the `push` workflows on the base branch. Dependabot-triggered runs
+# read secrets from the Dependabot store, so OPENUBL_BOT_KEY must exist there as well as in the
+# Actions store.
+#
+# Caller (must use pull_request_target and grant the permissions; see README.md):
+#
+#   on:
+#     pull_request_target:
+#       types: [opened, synchronize, reopened]
+#       branches: [main]
+#   permissions:
+#     contents: write
+#     pull-requests: write
+#   jobs:
+#     auto-merge:
+#       uses: project-openubl/release-tools/.github/workflows/auto-merge-dependabot.yaml@main
+#       secrets: inherit
+
+on:
+  workflow_call:
+    inputs:
+      update-types:
+        description: "Comma-separated semver levels to auto-merge: any of patch, minor, major."
+        type: string
+        default: "patch,minor,major"
+      merge-method:
+        description: "Merge method used by auto-merge: squash, merge or rebase."
+        type: string
+        default: "squash"
+
+jobs:
+  auto-merge:
+    runs-on: ubuntu-latest
+    # pull_request_target runs in the base-repo context with a write token (Dependabot's own
+    # pull_request token is read-only). Restrict to Dependabot PRs from this same repo.
+    # Nothing from the PR head is checked out or executed.
+    if: github.actor == 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - name: Fetch Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: ${{ github.token }}
+
+      - name: Check update type
+        id: policy
+        env:
+          UPDATE_TYPE: ${{ steps.metadata.outputs.update-type }}
+          ALLOWED: ${{ inputs.update-types }}
+        run: |
+          # update-type looks like "version-update:semver-minor"; for grouped PRs it is the highest.
+          level="${UPDATE_TYPE#version-update:semver-}"
+          if [[ -n "$level" && ",${ALLOWED// /}," == *",${level},"* ]]; then
+            echo "allowed=true" >> "$GITHUB_OUTPUT"
+            echo "level=${level}" >> "$GITHUB_OUTPUT"
+          else
+            echo "allowed=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Update type '${UPDATE_TYPE}' not in '${ALLOWED}'; leaving PR for manual review."
+          fi
+
+      - name: Validate merge method
+        if: steps.policy.outputs.allowed == 'true'
+        env:
+          MERGE_METHOD: ${{ inputs.merge-method }}
+        run: |
+          case "$MERGE_METHOD" in
+            squash|merge|rebase) ;;
+            *) echo "::error::Invalid merge-method '$MERGE_METHOD'"; exit 1 ;;
+          esac
+
+      - name: Get bot token
+        if: steps.policy.outputs.allowed == 'true'
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.OPENUBL_BOT_ID }}
+          private-key: ${{ secrets.OPENUBL_BOT_KEY }}
+
+      - name: Approve PR
+        if: steps.policy.outputs.allowed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          LEVEL: ${{ steps.policy.outputs.level }}
+        run: |
+          gh pr review "$PR_URL" --approve --body "🤖 Auto-approved — Dependabot \`semver-${LEVEL}\` update."
+
+      - name: Enable auto-merge
+        if: steps.policy.outputs.allowed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          MERGE_METHOD: ${{ inputs.merge-method }}
+        run: |
+          gh pr merge "$PR_URL" --auto "--${MERGE_METHOD}"

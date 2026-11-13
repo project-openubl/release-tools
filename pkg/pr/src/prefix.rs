@@ -92,15 +92,15 @@ impl PRType {
             || value.strip_prefix(PREFIX_NO_NOTE.1).is_some()
         {
             let emoji = value.chars().next().map(|c| c.to_string());
-            return Err(crate::error::Error::InvalidTitle {
+            Err(crate::error::Error::InvalidTitle {
                 title: trust(value),
                 emoji,
-            });
+            })
         } else {
-            return Err(crate::error::Error::InvalidTitle {
+            Err(crate::error::Error::InvalidTitle {
                 title: trust(value),
                 emoji: None,
-            });
+            })
         }
     }
 
