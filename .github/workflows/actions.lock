@@ -5,16 +5,16 @@ version: 'v0.0.3'
 workflows:
     '.github/workflows/_auto-merge-dependabot.yaml': []
     '.github/workflows/_cut-release-branches.yaml':
-        - 'actions/checkout@v4.4.0'
+        - 'actions/checkout@v7.0.1'
         - 'peter-murray/workflow-application-token-action@v4.0.1'
     '.github/workflows/_issues.yaml': []
     '.github/workflows/_main.yaml':
-        - 'actions/checkout@v4.4.0'
+        - 'actions/checkout@v7.0.1'
         - 'dorny/paths-filter@v3.0.4'
         - 'swatinem/rust-cache@v2.9.3'
     '.github/workflows/_pr-closed.yaml': []
     '.github/workflows/_push-main.yml':
-        - 'actions/checkout@v4.4.0'
+        - 'actions/checkout@v7.0.1'
         - 'dorny/paths-filter@v3.0.4'
         - 'peter-murray/workflow-application-token-action@v4.0.1'
         - 'swatinem/rust-cache@v2.9.3'
@@ -23,19 +23,19 @@ workflows:
         - 'actions/create-github-app-token@v2.2.2'
         - 'dependabot/fetch-metadata@v2.5.0'
     '.github/workflows/build-push-images.yaml':
-        - 'actions/checkout@v4.4.0'
+        - 'actions/checkout@v7.0.1'
         - 'docker/metadata-action@v5.10.0'
         - 'docker/setup-qemu-action@master'
         - 'redhat-actions/buildah-build@main'
         - 'redhat-actions/podman-login@main'
         - 'redhat-actions/push-to-registry@main'
     '.github/workflows/cherry-pick.yaml':
-        - 'actions/checkout@v4.4.0'
+        - 'actions/checkout@v7.0.1'
         - 'actions/github-script@v9.0.0'
         - 'korthout/backport-action@v4.7.1'
         - 'peter-murray/workflow-application-token-action@v4.0.1'
     '.github/workflows/generate-changelog.yml':
-        - 'actions/checkout@v4.4.0'
+        - 'actions/checkout@v7.0.1'
         - 'actions/upload-artifact@v7.0.2'
     '.github/workflows/reconcile-issue-comment.yaml':
         - 'actions/github-script@v9.0.0'
@@ -52,9 +52,9 @@ dependencies:
         commit: 'sha1-244f685bbc3b7adfa8466e08b698b5577571133e'
         owner_id: 44036562
         repo_id: 454132203
-    'actions/checkout@v4.4.0':
-        ref: 'v4.4.0'
-        commit: 'sha1-11d5960a326750d5838078e36cf38b85af677262'
+    'actions/checkout@v7.0.1':
+        ref: 'v7.0.1'
+        commit: 'sha1-3d3c42e5aac5ba805825da76410c181273ba90b1'
         owner_id: 44036562
         repo_id: 197814629
     'actions/create-github-app-token@v2.2.2':
