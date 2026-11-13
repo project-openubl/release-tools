@@ -20,13 +20,13 @@ jobs:
     steps:
       - name: Get Token
         id: get_workflow_token
-        uses: peter-murray/workflow-application-token-action@v4
+        uses: peter-murray/workflow-application-token-action@v4.0.1
         with:
           application_id: ${{ vars.OPENUBL_BOT_ID }}
           application_private_key: ${{ secrets.OPENUBL_BOT_KEY }}
 
       - name: Handle labels
-        uses: actions/github-script@v7
+        uses: actions/github-script@v7.1.0
         with:
           github-token: ${{ steps.get_workflow_token.outputs.token }}
           script: |
@@ -161,7 +161,7 @@ jobs:
     steps:
       - name: Get Token
         id: get_workflow_token
-        uses: peter-murray/workflow-application-token-action@v4
+        uses: peter-murray/workflow-application-token-action@v4.0.1
         with:
           application_id: ${{ vars.OPENUBL_BOT_ID }}
           application_private_key: ${{ secrets.OPENUBL_BOT_KEY }}

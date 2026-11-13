@@ -46,7 +46,7 @@ jobs:
     steps:
       - name: Fetch Dependabot metadata
         id: metadata
-        uses: dependabot/fetch-metadata@v2
+        uses: dependabot/fetch-metadata@v2.5.0
         with:
           github-token: ${{ github.token }}
 
@@ -79,7 +79,7 @@ jobs:
       - name: Get bot token
         if: steps.policy.outputs.allowed == 'true'
         id: app-token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@v2.2.2
         with:
           app-id: ${{ vars.OPENUBL_BOT_ID }}
           private-key: ${{ secrets.OPENUBL_BOT_KEY }}

@@ -3,10 +3,8 @@ resolver = "2"
 members = [
     "pkg/action",
     "pkg/config",
-    "pkg/pr",
     "cmd/labels",
     "cmd/milestones",
-    "cmd/verify-pr",
 ]
 
 [workspace.package]
@@ -31,6 +29,5 @@ tokio = { version = "1" }
 
 action = { path = "./pkg/action" }
 config = { path = "./pkg/config" }
-pr = { path = "./pkg/pr" }
 
 [patch.crates-io]

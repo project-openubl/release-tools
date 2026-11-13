@@ -51,19 +51,35 @@ and the associated git tag.
 
 # Pull Request (PR) Process
 
-Every PR should be annotated with an icon indicating whether it's
-a:
+PR titles must follow [Conventional Commits](https://www.conventionalcommits.org/):
 
-- Breaking change: :warning: (`:warning:`)
-- Non-breaking feature: :sparkles: (`:sparkles:`)
-- Patch fix: :bug: (`:bug:`)
-- Docs: :book: (`:book:`)
-- Infra/Tests/Other: :seedling: (`:seedling:`)
-- No release note: :ghost: (`:ghost:`)
+```
+<type>[optional scope][!]: <description>
+```
 
-Since GitHub supports emoji aliases (ie. `:ghost:`), there is no need to include
-the emoji directly in the PR title -- **please use the alias**. It used to be
-the case that projects using emojis for PR typing had to include the emoji
-directly because GitHub didn't render the alias. Given that `:warning:` is
-easy enough to read as text, easy to parse in release tooling, and rendered in
-GitHub well, we prefer to standardize on the alias.
+PRs are squash-merged, so the title becomes the commit on the base branch. It is
+checked by [verify-pr-title](./.github/workflows/verify-pr-title.yaml).
+
+| Type       | Use for                                  |
+|------------|------------------------------------------|
+| `feat`     | New feature                              |
+| `fix`      | Bug fix                                  |
+| `docs`     | Documentation only                       |
+| `refactor` | Code change with no behavior change      |
+| `perf`     | Performance improvement                  |
+| `test`     | Tests only                               |
+| `build`    | Build system or dependencies             |
+| `ci`       | CI configuration                         |
+| `chore`    | Other maintenance (e.g. Dependabot)      |
+| `style`    | Formatting only                          |
+| `revert`   | Revert a previous change                 |
+
+Mark breaking changes with `!`, e.g. `feat(api)!: remove v1 endpoints`.
+
+Examples:
+
+```
+feat(xml): support credit notes
+fix: handle empty response in signer
+chore(deps): bump actions/checkout from 4 to 5
+```
