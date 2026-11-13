@@ -156,7 +156,7 @@ async fn exec() -> crate::error::Result<()> {
                     .patch(
                         &format!(
                             "/repos/{}/{}/labels/{}",
-                            &update.org, &update.repo, &current.name
+                            update.org, update.repo, current.name
                         ),
                         Some(&json!({
                             "name": wanted.name,
