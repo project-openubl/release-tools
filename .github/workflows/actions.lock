@@ -31,18 +31,18 @@ workflows:
         - 'redhat-actions/push-to-registry@main'
     '.github/workflows/cherry-pick.yaml':
         - 'actions/checkout@v4.4.0'
-        - 'actions/github-script@v7.1.0'
+        - 'actions/github-script@v9.0.0'
         - 'korthout/backport-action@v4.7.1'
         - 'peter-murray/workflow-application-token-action@v4.0.1'
     '.github/workflows/generate-changelog.yml':
         - 'actions/checkout@v4.4.0'
         - 'actions/upload-artifact@v4.6.2'
     '.github/workflows/reconcile-issue-comment.yaml':
-        - 'actions/github-script@v7.1.0'
+        - 'actions/github-script@v9.0.0'
         - 'peter-murray/workflow-application-token-action@v4.0.1'
     '.github/workflows/reconcile-issue.yaml':
         - 'actions/add-to-project@v1.0.2'
-        - 'actions/github-script@v7.1.0'
+        - 'actions/github-script@v9.0.0'
         - 'peter-murray/workflow-application-token-action@v4.0.1'
     '.github/workflows/verify-pr-title.yaml':
         - 'amannn/action-semantic-pull-request@v6.1.1'
@@ -62,9 +62,9 @@ dependencies:
         commit: 'sha1-fee1f7d63c2ff003460e3d139729b119787bc349'
         owner_id: 44036562
         repo_id: 642580244
-    'actions/github-script@v7.1.0':
-        ref: 'v7.1.0'
-        commit: 'sha1-f28e40c7f34bde8b3046d885e986cb6290c5673b'
+    'actions/github-script@v9.0.0':
+        ref: 'v9.0.0'
+        commit: 'sha1-3a2844b7e9c422d3c10d287c895573f7108da1b3'
         owner_id: 44036562
         repo_id: 205262760
     'actions/upload-artifact@v4.6.2':
