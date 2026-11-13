@@ -1,0 +1,70 @@
+name: Verify PR title
+
+# Reusable workflow: fails unless the PR title follows Conventional Commits,
+# e.g. `feat(api): add endpoint` or `fix!: drop v1`. Wraps amannn/action-semantic-pull-request;
+# empty inputs keep the action's defaults. Usage: see README.md.
+
+on:
+  workflow_call:
+    inputs:
+      types:
+        description: "Allowed types, one per line. Default: the standard Conventional Commits types."
+        required: false
+        type: string
+        default: ""
+      scopes:
+        description: "Allowed scopes, one per line (regex allowed). Default: any."
+        required: false
+        type: string
+        default: ""
+      require-scope:
+        description: Fail when the title has no scope.
+        required: false
+        type: boolean
+        default: false
+      disallow-scopes:
+        description: Disallowed scopes, one per line (regex allowed).
+        required: false
+        type: string
+        default: ""
+      subject-pattern:
+        description: "Regex the subject must match, e.g. '^(?![A-Z]).+$' (no leading uppercase)."
+        required: false
+        type: string
+        default: ""
+      subject-pattern-error:
+        description: Error shown when subject-pattern does not match.
+        required: false
+        type: string
+        default: ""
+      ignore-labels:
+        description: Labels that skip the check, one per line.
+        required: false
+        type: string
+        default: ""
+      validate-single-commit:
+        description: Also validate the commit message of single-commit PRs (needed if squash uses it instead of the title).
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  pull-requests: read
+
+jobs:
+  verify:
+    name: Verify PR title
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@v6.1.1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          types: ${{ inputs.types }}
+          scopes: ${{ inputs.scopes }}
+          requireScope: ${{ inputs.require-scope }}
+          disallowScopes: ${{ inputs.disallow-scopes }}
+          subjectPattern: ${{ inputs.subject-pattern }}
+          subjectPatternError: ${{ inputs.subject-pattern-error }}
+          ignoreLabels: ${{ inputs.ignore-labels }}
+          validateSingleCommit: ${{ inputs.validate-single-commit }}

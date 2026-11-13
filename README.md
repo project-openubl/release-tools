@@ -55,3 +55,47 @@ Requirements:
    required checks, auto-merge merges the PR immediately.
 4. **Recommended:** add a `cooldown` (e.g. `default-days: 7`) to `.github/dependabot.yml` so freshly
    published (possibly compromised) releases are not merged right away.
+
+### [verify-pr-title](./.github/workflows/verify-pr-title.yaml)
+
+Fails unless the PR title follows [Conventional Commits](https://www.conventionalcommits.org/)
+(see [allowed types](./VERSIONING.md#pull-request-pr-process)). Uses
+[amannn/action-semantic-pull-request](https://github.com/amannn/action-semantic-pull-request).
+
+To opt in, add `.github/workflows/verify-pr-title.yaml` to your repository:
+
+```yaml
+name: Verify PR title
+
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  verify-pr-title:
+    uses: project-openubl/release-tools/.github/workflows/verify-pr-title.yaml@main
+    # Optional:
+    # with:
+    #   scopes: |
+    #     api
+    #     ui
+    #   require-scope: true
+    #   ignore-labels: |
+    #     skip-title-check
+```
+
+Recommended repository settings:
+
+1. **Squash merge** with the default message set to **"Pull request title"**, so the validated title
+   lands on `main` (or set `validate-single-commit: true`).
+2. **Ruleset on `main`:** require the `verify-pr-title / Verify PR title` check.
+3. **Dependabot:** conventional commit messages in `.github/dependabot.yml`:
+
+   ```yaml
+   commit-message:
+     prefix: "chore"
+     include: "scope"   # -> "chore(deps): bump ..."
+   ```

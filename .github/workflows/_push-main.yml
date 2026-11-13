@@ -22,8 +22,8 @@ jobs:
       milestone: ${{ steps.filter.outputs.milestone }}
       labels: ${{ steps.filter.outputs.labels }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
+      - uses: actions/checkout@v4.4.0
+      - uses: dorny/paths-filter@v3.0.4
         id: filter
         with:
           filters: |
@@ -42,11 +42,11 @@ jobs:
     env:
       GITHUB_TOKEN: ${{ github.token }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@v4.4.0
+      - uses: Swatinem/rust-cache@v2.9.3
       - name: Get Token
         id: get_workflow_token
-        uses: peter-murray/workflow-application-token-action@v4
+        uses: peter-murray/workflow-application-token-action@v4.0.1
         with:
           application_id: ${{ vars.OPENUBL_BOT_ID }}
           application_private_key: ${{ secrets.OPENUBL_BOT_KEY }}
@@ -65,11 +65,11 @@ jobs:
     env:
       GITHUB_TOKEN: ${{ github.token }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@v4.4.0
+      - uses: Swatinem/rust-cache@v2.9.3
       - name: Get Token
         id: get_workflow_token
-        uses: peter-murray/workflow-application-token-action@v4
+        uses: peter-murray/workflow-application-token-action@v4.0.1
         with:
           application_id: ${{ vars.OPENUBL_BOT_ID }}
           application_private_key: ${{ secrets.OPENUBL_BOT_KEY }}
