@@ -167,7 +167,7 @@ jobs:
           application_private_key: ${{ secrets.OPENUBL_BOT_KEY }}
 
       - name: Add to planning project
-        uses: actions/add-to-project@v1.0.2
+        uses: actions/add-to-project@v2.0.1
         with:
           github-token: ${{ steps.get_workflow_token.outputs.token }}
           project-url: https://github.com/orgs/project-openubl/projects/4
