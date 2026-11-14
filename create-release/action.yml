@@ -1,0 +1,77 @@
+name: Create Release
+description: >-
+  Tags a commit of a repository and publishes its GitHub release, with notes generated from the
+  pull requests merged since the previous release. Publishing the release runs the repository's
+  release workflow (`on: release: types: [published]`), which builds and publishes it.
+  Does nothing when the release exists.
+
+inputs:
+  github_token:
+    description: Token with contents write on the repository. A GitHub App token, not GITHUB_TOKEN, so the release triggers workflows
+    required: true
+  version:
+    description: Semantic version with the v, e.g. v6.0.0 or v6.0.0-alpha.1 (pre-release)
+    required: true
+  prev_version:
+    description: Previous release for the notes; defaults to the latest release
+    required: false
+    default: ""
+  repository:
+    description: owner/repo
+    required: true
+  ref:
+    description: Branch or commit SHA to tag
+    required: false
+    default: main
+
+outputs:
+  sha:
+    description: The tagged commit
+    value: ${{ steps.release.outputs.sha }}
+
+runs:
+  using: composite
+  steps:
+    - id: release
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github_token }}
+        GH_REPO: ${{ inputs.repository }}
+        VERSION: ${{ inputs.version }}
+        PREV_VERSION: ${{ inputs.prev_version }}
+        REF: ${{ inputs.ref }}
+      run: |
+        if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$ ]]; then
+          echo "::error::$VERSION is not a semantic version with the v (e.g. v6.0.0-alpha.1)"
+          exit 1
+        fi
+
+        if gh release view "$VERSION" >/dev/null 2>&1; then
+          sha=$(gh api "repos/$GH_REPO/commits/$VERSION" --jq .sha)
+          echo "::notice::$GH_REPO $VERSION already exists ($sha)"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        sha=$(gh api "repos/$GH_REPO/commits/$REF" --jq .sha)
+        echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+        # A tag without a release: gh release create would use it whatever commit it points to
+        if tagged=$(gh api "repos/$GH_REPO/commits/refs/tags/$VERSION" --jq .sha 2>/dev/null) && [ "$tagged" != "$sha" ]; then
+          echo "::error::The tag $VERSION exists in $GH_REPO at $tagged, not at $REF ($sha)"
+          exit 1
+        fi
+
+        prev="$PREV_VERSION"
+        if [ -z "$prev" ]; then
+          prev=$(gh api "repos/$GH_REPO/releases?per_page=1" --jq '.[0].tag_name // empty')
+        fi
+        args=(-f tag_name="$VERSION" -f target_commitish="$sha")
+        [ -n "$prev" ] && args+=(-f previous_tag_name="$prev")
+        gh api -X POST "repos/$GH_REPO/releases/generate-notes" "${args[@]}" --jq .body > notes.md
+
+        prerelease=()
+        [[ "$VERSION" == *-* ]] && prerelease=(--prerelease)
+        gh release create "$VERSION" --target "$sha" --title "$VERSION" --notes-file notes.md "${prerelease[@]}"
+        rm notes.md
+        echo "::notice::Released $GH_REPO $VERSION ($sha)"

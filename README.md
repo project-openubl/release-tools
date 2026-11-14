@@ -13,6 +13,52 @@ enhancments, issues, and pull requests, they can be tracked properly.
 
 You can find our reusable GitHub Workflows in [./.github/workflows](./.github/workflows).
 
+## Releasing xhandler
+
+[`release-xhandler`](./.github/workflows/release-xhandler.yaml) releases
+[xhandler-rust](https://github.com/project-openubl/xhandler-rust),
+[xhandler-go](https://github.com/project-openubl/xhandler-go),
+[xhandler-python](https://github.com/project-openubl/xhandler-python) and
+[xhandler-java](https://github.com/project-openubl/xhandler-java) with the same version
+([VERSIONING.md](./VERSIONING.md): `vX.Y.0-alpha.n` from `main`, `vX.Y.Z` from `release-X.Y`).
+Run it from Actions → Release xhandler with the version and the branch.
+
+1. It tags xhandler-rust with [`create-release`](./create-release/action.yml) and waits for the
+   repository's release workflow. That workflow publishes `xhandler` and `xhandler-cli` to crates.io
+   and attaches the CLI binaries and the core the libraries use (`xhandler-dist-<version>.tar.gz`,
+   `xhandler.wasm`, `SHA256SUMS`).
+2. For each library, a pull request syncs that core (`make sync CORE=<version>`) and auto-merges
+   once CI passes. Then the merge commit is tagged and the library's release workflow publishes it.
+   A library is only released with the xhandler-rust core of the same version: its release workflow
+   checks the core's `VERSION` and the `xhandler.wasm` checksum (`make verify-core`).
+3. A pull request moves [xhandler-mobile](https://github.com/project-openubl/xhandler-mobile) to the
+   released crate. Its store releases stay manual.
+
+The tag is the version: each release workflow sets it at build time, so the branches keep a
+development version (Python's is the version of the core it carries). Rerunning with the same
+version continues where it stopped: existing releases are kept, failed release workflows rerun and
+published packages are skipped. Don't create library releases by hand: for Go the tag is the
+publication, and release-xhandler checks the core before tagging.
+
+One-time setup:
+
+- **Bot**: the openubl bot App (`OPENUBL_BOT_ID`, `OPENUBL_BOT_KEY`) installed on the five repositories
+  with read and write access to contents, pull requests and actions (to rerun a failed release
+  workflow). Branch protection or rulesets must let it merge the sync pull requests once CI passes
+  (no required review for it) and create `v*` tags.
+- **Branches**: an X.Y.Z release needs the `release-X.Y` branch in every repository
+  (`_cut-release-branches`).
+- **Environments**: `crates-io` in xhandler-rust and `pypi` in xhandler-python, ideally restricted to
+  `v*` tags.
+- **crates.io**: the first release creates the crates with a `CARGO_REGISTRY_TOKEN` secret in
+  xhandler-rust's `crates-io` environment. Then add a trusted publisher to `xhandler` and
+  `xhandler-cli` (repository `project-openubl/xhandler-rust`, workflow `release.yml`, environment
+  `crates-io`) and delete the secret.
+- **PyPI**: a pending trusted publisher for the `xhandler` project (repository
+  `project-openubl/xhandler-python`, workflow `release.yml`, environment `pypi`).
+- **Maven Central**: xhandler-java's existing secrets (`NEXUS_*`, `GPG_*`, `GH_PAT`).
+- **Go**: nothing. The module proxy serves the tag.
+
 ## Reusable Workflows
 
 ### [auto-merge-dependabot](./.github/workflows/auto-merge-dependabot.yaml)
