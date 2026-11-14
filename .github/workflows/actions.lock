@@ -41,15 +41,15 @@ workflows:
         - 'actions/github-script@v9.0.0'
         - 'peter-murray/workflow-application-token-action@v4.0.1'
     '.github/workflows/reconcile-issue.yaml':
-        - 'actions/add-to-project@v1.0.2'
+        - 'actions/add-to-project@v2.0.1'
         - 'actions/github-script@v9.0.0'
         - 'peter-murray/workflow-application-token-action@v4.0.1'
     '.github/workflows/verify-pr-title.yaml':
         - 'amannn/action-semantic-pull-request@v6.1.2'
 dependencies:
-    'actions/add-to-project@v1.0.2':
-        ref: 'v1.0.2'
-        commit: 'sha1-244f685bbc3b7adfa8466e08b698b5577571133e'
+    'actions/add-to-project@v2.0.1':
+        ref: 'v2.0.1'
+        commit: 'sha1-f2c1f1fa649a891be84948ea89b5dfba1526ef05'
         owner_id: 44036562
         repo_id: 454132203
     'actions/checkout@v7.0.1':
