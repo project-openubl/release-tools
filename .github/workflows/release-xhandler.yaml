@@ -14,8 +14,9 @@ name: Release xhandler
 # 3. mobile: a pull request moves xhandler-mobile to the released crate; the app's store
 #    releases stay manual.
 #
-# Rerunning with the same version continues: existing releases are kept, failed release
-# workflows rerun and published packages are skipped. See README.md for the one-time setup.
+# Rerunning with the same version continues: existing releases are kept, a failed release
+# workflow is dispatched again from the default branch (so a fix to it applies) and published
+# packages are skipped. See README.md for the one-time setup.
 
 on:
   workflow_dispatch:
@@ -91,8 +92,8 @@ jobs:
   libraries:
     needs: core
     runs-on: ubuntu-latest
-    # Waits for each sync pull request's CI and the release workflow
-    timeout-minutes: 180
+    # The merge and the release workflow wait up to 45 minutes each
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
@@ -131,7 +132,8 @@ jobs:
           ../release-tools/hack/open-pr.sh "$sync_branch" "$(git rev-parse --abbrev-ref HEAD)" \
             "chore: xhandler core $VERSION" \
             "Syncs the core of the xhandler-rust [$VERSION](https://github.com/project-openubl/xhandler-rust/releases/tag/$VERSION) release before releasing $VERSION ([release-xhandler]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID))."
-          echo "ref=$(../release-tools/hack/merge-pr.sh "$sync_branch")" >> "$GITHUB_OUTPUT"
+          ref=$(../release-tools/hack/merge-pr.sh "$sync_branch")
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
       # Tagging publishes Go at once: check the core before
       - name: Check the core of ${{ steps.sync.outputs.ref }}
         working-directory: repo
@@ -141,9 +143,17 @@ jobs:
           git fetch -q origin "$REF"
           git checkout -q "$REF"
           make verify-release TAG="$VERSION"
+      # App tokens last an hour: the first one may be near its end after the merge
+      - uses: actions/create-github-app-token@v3.3.0
+        id: release-token
+        with:
+          app-id: ${{ vars.OPENUBL_BOT_ID }}
+          private-key: ${{ secrets.OPENUBL_BOT_KEY }}
+          owner: project-openubl
+          repositories: ${{ matrix.repo }}
       - uses: ./release-tools/create-release
         with:
-          github_token: ${{ steps.app-token.outputs.token }}
+          github_token: ${{ steps.release-token.outputs.token }}
           version: ${{ inputs.version }}
           prev_version: ${{ inputs.prev_version }}
           repository: project-openubl/${{ matrix.repo }}
@@ -151,7 +161,7 @@ jobs:
       - name: Wait for the ${{ matrix.repo }} release workflow
         run: ./release-tools/hack/wait-for-release-run.sh "project-openubl/${{ matrix.repo }}" "$VERSION"
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_TOKEN: ${{ steps.release-token.outputs.token }}
 
   mobile:
     needs: core
