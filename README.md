@@ -37,7 +37,7 @@ Run it from Actions → Release xhandler with the version, and the branch for a 
    checks the core's `VERSION` and the `xhandler.wasm` checksum (`make verify-release`), and
    release-tools checks it before tagging.
 1. A pull request moves [xhandler-mobile](https://github.com/project-openubl/xhandler-mobile) to the
-   released crate. Its store releases stay manual.
+   released crate. The app is released separately, with [release-mobile](#releasing-xhandler-mobile).
 1. Once the libraries are published, a pull request moves the
    [website](https://github.com/project-openubl/project-openubl.github.io) to the release: its
    `npm run xhandler:set-version` pins the release's `xhandler.wasm` for the playground (from
@@ -80,6 +80,40 @@ One-time setup:
   `project-openubl/xhandler-python`, workflow `release.yml`, environment `pypi`).
 - **Maven Central**: xhandler-java's existing secrets (`NEXUS_*`, `GPG_*`).
 - **Go**: nothing. The module proxy serves the tag.
+
+## Releasing xhandler-mobile
+
+[`release-mobile`](./.github/workflows/release-mobile.yaml) releases the
+[xhandler-mobile](https://github.com/project-openubl/xhandler-mobile) app to Google Play and the App
+Store. The app has its own version, with the [VERSIONING.md](./VERSIONING.md) rules: `vX.Y.0-alpha.N`
+from `main`, `vX.Y.Z` from `release-X.Y`. Run it from Actions → Release xhandler-mobile with the version
+and, for a stable release, the branch.
+
+1. [`preflight.sh`](./hack/preflight.sh) checks xhandler-mobile, as for the libraries.
+1. [`create-release`](./create-release/action.yml) tags it and publishes the GitHub release, which
+   runs the app's `release.yml`. release-mobile waits for that workflow
+   ([`wait-for-release-run.sh`](./hack/wait-for-release-run.sh)).
+1. The app's release workflow builds the signed app with the version from the tag and uploads it:
+
+   | Version | Google Play | App Store |
+   |---|---|---|
+   | `-alpha.N`, `-beta.N`, `-rc.N` | Internal testing | TestFlight |
+   | `vX.Y.Z` | Production, staged rollout to 10% of users | TestFlight, then submitted for review |
+
+   Making a stable release public stays a decision in the stores: raise the rollout in Play
+   Console and release the approved version in App Store Connect. The signed APK, the AAB and
+   their `SHA256SUMS` are attached to the GitHub release.
+
+The store build number comes from the version, so a version is uploaded once. Rerunning
+release-mobile with the same version continues and skips the builds the stores already have. The
+version code scheme, the store "what's new" texts and the store secrets are in xhandler-mobile's
+[docs/STORE.md](https://github.com/project-openubl/xhandler-mobile/blob/main/docs/STORE.md#release-ci).
+
+One-time setup: the openubl bot App installed on xhandler-mobile (contents, pull requests, actions),
+required CI checks and auto-merge allowed on its `main` and `release-X.Y` branches, `v*` tags allowed for
+the bot, and the store secrets in xhandler-mobile. `_cut-release-branches` doesn't create the app's
+`release-X.Y` branches, since its versions are not xhandler's: create them in xhandler-mobile
+(`git push origin main:release-X.Y`).
 
 ## Reusable Workflows
 

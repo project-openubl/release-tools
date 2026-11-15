@@ -56,5 +56,5 @@ while [ "$SECONDS" -lt "$deadline" ]; do
   sleep 30
 done
 
-echo "::error::The release workflow of $repo $tag is still running after 45 minutes: rerun release-xhandler to keep waiting"
+echo "::error::The release workflow of $repo $tag is still running after 45 minutes: rerun the release to keep waiting"
 exit 1
