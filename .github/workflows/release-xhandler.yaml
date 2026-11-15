@@ -1,0 +1,210 @@
+name: Release xhandler
+
+# Releases xhandler-rust, xhandler-go, xhandler-python and xhandler-java with the same version,
+# in the order konveyor/operator's create-release workflow uses: the base first, waiting for it
+# to be published, then the components that depend on it.
+#
+# 0. preflight: checks every repository before anything is tagged (hack/preflight.sh).
+# 1. core: tags xhandler-rust (create-release) and waits for its release workflow: crates.io,
+#    the CLI binaries and the core the libraries sync (dist, xhandler.wasm, SHA256SUMS).
+# 2. libraries (in parallel): a pull request syncs the released core (make sync CORE=...) and
+#    merges once the branch's required checks pass. `make verify-release` checks the merge
+#    commit, which is then tagged; the library's release workflow publishes it (Go module
+#    proxy, PyPI, Maven Central).
+# 3. mobile: a pull request moves xhandler-mobile to the released crate; the app's store
+#    releases stay manual.
+#
+# Rerunning with the same version continues: existing releases are kept, failed release
+# workflows rerun and published packages are skipped. See README.md for the one-time setup.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version with the v, e.g. v6.0.0-alpha.1 or v6.0.0"
+        required: true
+        type: string
+      branch:
+        description: "Branch to release; empty: each repository's default branch (pre-releases). X.Y.Z: release-X.Y"
+        required: false
+        type: string
+      prev_version:
+        description: "Previous release, for the notes (defaults to each repository's latest)"
+        required: false
+        type: string
+
+run-name: Release xhandler ${{ inputs.version }}
+
+concurrency:
+  group: release-xhandler
+
+permissions:
+  contents: read
+
+env:
+  VERSION: ${{ inputs.version }}
+  BRANCH: ${{ inputs.branch }}
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      # Also checks that the bot can reach every repository
+      - uses: actions/create-github-app-token@v3.3.0
+        id: app-token
+        with:
+          app-id: ${{ vars.OPENUBL_BOT_ID }}
+          private-key: ${{ secrets.OPENUBL_BOT_KEY }}
+          owner: project-openubl
+          repositories: xhandler-rust,xhandler-go,xhandler-python,xhandler-java,xhandler-mobile
+      - run: |
+          ./hack/preflight.sh "$BRANCH" project-openubl/xhandler-rust project-openubl/xhandler-go \
+            project-openubl/xhandler-python project-openubl/xhandler-java
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+
+  core:
+    needs: preflight
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/create-github-app-token@v3.3.0
+        id: app-token
+        with:
+          app-id: ${{ vars.OPENUBL_BOT_ID }}
+          private-key: ${{ secrets.OPENUBL_BOT_KEY }}
+          owner: project-openubl
+          repositories: xhandler-rust
+      - uses: ./create-release
+        with:
+          github_token: ${{ steps.app-token.outputs.token }}
+          version: ${{ inputs.version }}
+          prev_version: ${{ inputs.prev_version }}
+          repository: project-openubl/xhandler-rust
+          ref: ${{ inputs.branch }}
+      - name: Wait for the xhandler-rust release workflow
+        run: ./hack/wait-for-release-run.sh project-openubl/xhandler-rust "$VERSION"
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+
+  libraries:
+    needs: core
+    runs-on: ubuntu-latest
+    # Waits for each sync pull request's CI and the release workflow
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        repo: [xhandler-go, xhandler-python, xhandler-java]
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          path: release-tools
+      - uses: actions/create-github-app-token@v3.3.0
+        id: app-token
+        with:
+          app-id: ${{ vars.OPENUBL_BOT_ID }}
+          private-key: ${{ secrets.OPENUBL_BOT_KEY }}
+          owner: project-openubl
+          repositories: ${{ matrix.repo }}
+      - uses: actions/checkout@v7.0.1
+        with:
+          repository: project-openubl/${{ matrix.repo }}
+          ref: ${{ inputs.branch }}
+          token: ${{ steps.app-token.outputs.token }}
+          path: repo
+      - name: Sync the released core
+        id: sync
+        working-directory: repo
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          BOT: ${{ steps.app-token.outputs.app-slug }}[bot]
+        run: |
+          make sync CORE="${VERSION#v}"
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "The core is already ${VERSION#v}"
+            echo "ref=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          sync_branch="release/xhandler-core-$VERSION"
+          ../release-tools/hack/open-pr.sh "$sync_branch" "$(git rev-parse --abbrev-ref HEAD)" \
+            "chore: xhandler core $VERSION" \
+            "Syncs the core of the xhandler-rust [$VERSION](https://github.com/project-openubl/xhandler-rust/releases/tag/$VERSION) release before releasing $VERSION ([release-xhandler]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID))."
+          echo "ref=$(../release-tools/hack/merge-pr.sh "$sync_branch")" >> "$GITHUB_OUTPUT"
+      # Tagging publishes Go at once: check the core before
+      - name: Check the core of ${{ steps.sync.outputs.ref }}
+        working-directory: repo
+        env:
+          REF: ${{ steps.sync.outputs.ref }}
+        run: |
+          git fetch -q origin "$REF"
+          git checkout -q "$REF"
+          make verify-release TAG="$VERSION"
+      - uses: ./release-tools/create-release
+        with:
+          github_token: ${{ steps.app-token.outputs.token }}
+          version: ${{ inputs.version }}
+          prev_version: ${{ inputs.prev_version }}
+          repository: project-openubl/${{ matrix.repo }}
+          ref: ${{ steps.sync.outputs.ref }}
+      - name: Wait for the ${{ matrix.repo }} release workflow
+        run: ./release-tools/hack/wait-for-release-run.sh "project-openubl/${{ matrix.repo }}" "$VERSION"
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+
+  mobile:
+    needs: core
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          path: release-tools
+      - uses: actions/create-github-app-token@v3.3.0
+        id: app-token
+        with:
+          app-id: ${{ vars.OPENUBL_BOT_ID }}
+          private-key: ${{ secrets.OPENUBL_BOT_KEY }}
+          owner: project-openubl
+          repositories: xhandler-mobile
+      - uses: actions/checkout@v7.0.1
+        with:
+          repository: project-openubl/xhandler-mobile
+          token: ${{ steps.app-token.outputs.token }}
+          path: repo
+      - name: Pull request moving to the released crate
+        working-directory: repo
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          BOT: ${{ steps.app-token.outputs.app-slug }}[bot]
+        run: |
+          crate_version="${VERSION#v}"
+          perl -pi -e "s/^xhandler = .*/xhandler = \"=$crate_version\"/" rust/Cargo.toml
+          (cd rust && cargo update --workspace --quiet)
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "xhandler-mobile already uses xhandler $crate_version"
+            exit 0
+          fi
+          ../release-tools/hack/open-pr.sh "deps/xhandler-$VERSION" "$(git rev-parse --abbrev-ref HEAD)" \
+            "chore(deps): xhandler $crate_version" \
+            "Moves to the xhandler [$VERSION](https://github.com/project-openubl/xhandler-rust/releases/tag/$VERSION) release on crates.io ([release-xhandler]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)). Store releases stay manual."
+
+  summary:
+    needs: [core, libraries]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Release notes of every repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "# xhandler $VERSION"
+            for repo in xhandler-rust xhandler-go xhandler-python xhandler-java; do
+              echo
+              echo "## [$repo](https://github.com/project-openubl/$repo/releases/tag/$VERSION)"
+              echo
+              gh release view "$VERSION" --repo "project-openubl/$repo" --json body --jq .body 2>/dev/null \
+                || echo "_Not released_"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
