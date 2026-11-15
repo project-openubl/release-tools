@@ -17,23 +17,56 @@ fail() {
   failed=1
 }
 
+# gh api, retrying the transient failures of the GitHub API. Prints the response; on failure
+# returns 4 for a 404 and otherwise 1, with GitHub's error on stderr. (It runs in command
+# substitutions: the caller records the failure.)
+api() {
+  local out attempt
+  for attempt in 1 2 3; do
+    if out=$(gh api "$@" 2>&1); then
+      printf '%s\n' "$out"
+      return 0
+    fi
+    if [[ "$out" == *"HTTP 404"* ]]; then
+      echo "gh api $*: $out" >&2
+      return 4
+    fi
+    sleep $((attempt * 5))
+  done
+  echo "gh api $*: $out" >&2
+  return 1
+}
+
+unreadable() {
+  fail "Could not read $1 from the GitHub API (error above)"
+}
+
 for repo in "$@"; do
-  branch=${requested_branch:-$(gh api "repos/$repo" --jq .default_branch)}
-  if ! gh api "repos/$repo/branches/$branch" >/dev/null 2>&1; then
+  branch=${requested_branch:-$(api "repos/$repo" --jq .default_branch)} || { unreadable "$repo"; continue; }
+
+  api "repos/$repo/branches/$branch" >/dev/null
+  case $? in
+  0) ;;
+  4)
     fail "$repo has no branch $branch"
     continue
-  fi
+    ;;
+  *)
+    unreadable "$repo $branch"
+    continue
+    ;;
+  esac
 
   # Required checks come from branch protection or from rulesets
-  required=$(
-    gh api "repos/$repo/branches/$branch" --jq '.protection.required_status_checks.checks[]?.context'
-    gh api "repos/$repo/rules/branches/$branch" --jq '.[] | select(.type == "required_status_checks") | .parameters.required_status_checks[].context'
-  )
-  [ -n "$required" ] || fail "$repo $branch requires no status checks: the release merges pull requests on CI"
-  [ "$(gh api "repos/$repo" --jq .allow_auto_merge)" = true ] || fail "$repo does not allow auto-merge"
+  protected=$(api "repos/$repo/branches/$branch" --jq '.protection.required_status_checks.checks[]?.context') || { unreadable "$repo $branch"; continue; }
+  ruled=$(api "repos/$repo/rules/branches/$branch" --jq '.[] | select(.type == "required_status_checks") | .parameters.required_status_checks[].context') || { unreadable "$repo $branch rules"; continue; }
+  [ -n "$protected$ruled" ] || fail "$repo $branch requires no status checks: the release merges pull requests on CI"
 
-  runs=$(gh api --paginate "repos/$repo/commits/$branch/check-runs" --jq '.check_runs[] | "\(.status) \(.conclusion) \(.name)"')
-  pending=$(echo "$runs" | awk '$1 != "completed"' | cut -d' ' -f3-)
+  auto_merge=$(api "repos/$repo" --jq .allow_auto_merge) || { unreadable "$repo"; continue; }
+  [ "$auto_merge" = true ] || fail "$repo does not allow auto-merge"
+
+  runs=$(api --paginate "repos/$repo/commits/$branch/check-runs" --jq '.check_runs[] | "\(.status) \(.conclusion) \(.name)"') || { unreadable "$repo $branch checks"; continue; }
+  pending=$(echo "$runs" | awk 'NF && $1 != "completed"' | cut -d' ' -f3-)
   failing=$(echo "$runs" | awk '$1 == "completed" && $2 !~ /^(success|skipped|neutral)$/' | cut -d' ' -f3-)
   [ -z "$pending" ] || fail "$repo $branch still runs: $(echo "$pending" | paste -sd, -)"
   [ -z "$failing" ] || fail "$repo $branch failed: $(echo "$failing" | paste -sd, -)"
