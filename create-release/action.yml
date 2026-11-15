@@ -20,20 +20,14 @@ inputs:
     description: owner/repo
     required: true
   ref:
-    description: Branch or commit SHA to tag
+    description: Branch or commit SHA to tag; defaults to the repository's default branch
     required: false
-    default: main
-
-outputs:
-  sha:
-    description: The tagged commit
-    value: ${{ steps.release.outputs.sha }}
+    default: ""
 
 runs:
   using: composite
   steps:
-    - id: release
-      shell: bash
+    - shell: bash
       env:
         GH_TOKEN: ${{ inputs.github_token }}
         GH_REPO: ${{ inputs.repository }}
@@ -47,18 +41,16 @@ runs:
         fi
 
         if gh release view "$VERSION" >/dev/null 2>&1; then
-          sha=$(gh api "repos/$GH_REPO/commits/$VERSION" --jq .sha)
-          echo "::notice::$GH_REPO $VERSION already exists ($sha)"
-          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "::notice::$GH_REPO $VERSION already exists"
           exit 0
         fi
 
-        sha=$(gh api "repos/$GH_REPO/commits/$REF" --jq .sha)
-        echo "sha=$sha" >> "$GITHUB_OUTPUT"
+        ref=${REF:-$(gh api "repos/$GH_REPO" --jq .default_branch)}
+        sha=$(gh api "repos/$GH_REPO/commits/$ref" --jq .sha)
 
         # A tag without a release: gh release create would use it whatever commit it points to
         if tagged=$(gh api "repos/$GH_REPO/commits/refs/tags/$VERSION" --jq .sha 2>/dev/null) && [ "$tagged" != "$sha" ]; then
-          echo "::error::The tag $VERSION exists in $GH_REPO at $tagged, not at $REF ($sha)"
+          echo "::error::The tag $VERSION exists in $GH_REPO at $tagged, not at $ref ($sha)"
           exit 1
         fi
 

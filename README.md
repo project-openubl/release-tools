@@ -21,17 +21,22 @@ You can find our reusable GitHub Workflows in [./.github/workflows](./.github/wo
 [xhandler-python](https://github.com/project-openubl/xhandler-python) and
 [xhandler-java](https://github.com/project-openubl/xhandler-java) with the same version
 ([VERSIONING.md](./VERSIONING.md): `vX.Y.0-alpha.n` from `main`, `vX.Y.Z` from `release-X.Y`).
-Run it from Actions → Release xhandler with the version and the branch.
+Run it from Actions → Release xhandler with the version, and the branch for a stable release
+(empty: each repository's default branch).
 
+1. Before tagging anything, it checks every repository ([`preflight.sh`](./hack/preflight.sh)): the
+   bot can reach it, the branch exists, CI is required on it and passed on its head.
 1. It tags xhandler-rust with [`create-release`](./create-release/action.yml) and waits for the
    repository's release workflow. That workflow publishes `xhandler` and `xhandler-cli` to crates.io
    and attaches the CLI binaries and the core the libraries use (`xhandler-dist-<version>.tar.gz`,
    `xhandler.wasm`, `SHA256SUMS`).
-2. For each library, a pull request syncs that core (`make sync CORE=<version>`) and auto-merges
-   once CI passes. Then the merge commit is tagged and the library's release workflow publishes it.
+1. For each library, a pull request syncs that core (`make sync CORE=<version>`) and auto-merges
+   once the branch's required checks pass. Then the merge commit is tagged and the library's
+   release workflow publishes it.
    A library is only released with the xhandler-rust core of the same version: its release workflow
-   checks the core's `VERSION` and the `xhandler.wasm` checksum (`make verify-core`).
-3. A pull request moves [xhandler-mobile](https://github.com/project-openubl/xhandler-mobile) to the
+   checks the core's `VERSION` and the `xhandler.wasm` checksum (`make verify-release`), and
+   release-tools checks it before tagging.
+1. A pull request moves [xhandler-mobile](https://github.com/project-openubl/xhandler-mobile) to the
    released crate. Its store releases stay manual.
 
 The tag is the version: each release workflow sets it at build time, so the branches keep a
@@ -56,7 +61,7 @@ One-time setup:
   `crates-io`) and delete the secret.
 - **PyPI**: a pending trusted publisher for the `xhandler` project (repository
   `project-openubl/xhandler-python`, workflow `release.yml`, environment `pypi`).
-- **Maven Central**: xhandler-java's existing secrets (`NEXUS_*`, `GPG_*`, `GH_PAT`).
+- **Maven Central**: xhandler-java's existing secrets (`NEXUS_*`, `GPG_*`).
 - **Go**: nothing. The module proxy serves the tag.
 
 ## Reusable Workflows
