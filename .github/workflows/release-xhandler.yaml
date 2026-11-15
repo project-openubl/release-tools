@@ -12,7 +12,7 @@ name: Release xhandler
 #    commit, which is then tagged; the library's release workflow publishes it (Go module
 #    proxy, PyPI, Maven Central).
 # 3. mobile: a pull request moves xhandler-mobile to the released crate; the app's store
-#    releases stay manual.
+#    releases are made with release-mobile.
 # 4. website: once the libraries are published, a pull request moves project-openubl.github.io
 #    (the playground core and the versions in the docs) to the release; it is reviewed and merged
 #    by hand.
@@ -200,7 +200,7 @@ jobs:
           fi
           ../release-tools/hack/open-pr.sh "deps/xhandler-$VERSION" "$(git rev-parse --abbrev-ref HEAD)" \
             "chore(deps): xhandler $crate_version" \
-            "Moves to the xhandler [$VERSION](https://github.com/project-openubl/xhandler-rust/releases/tag/$VERSION) release on crates.io ([release-xhandler]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)). Store releases stay manual."
+            "Moves to the xhandler [$VERSION](https://github.com/project-openubl/xhandler-rust/releases/tag/$VERSION) release on crates.io ([release-xhandler]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)). The app is released to the stores separately, with release-mobile."
 
   website:
     # After the libraries: the docs only point to packages that are published

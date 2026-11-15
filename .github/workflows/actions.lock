@@ -44,6 +44,9 @@ workflows:
         - 'actions/add-to-project@v2.0.1'
         - 'actions/github-script@v9.0.0'
         - 'peter-murray/workflow-application-token-action@v4.0.1'
+    '.github/workflows/release-mobile.yaml':
+        - 'actions/checkout@v7.0.1'
+        - 'actions/create-github-app-token@v3.3.0'
     '.github/workflows/release-xhandler.yaml':
         - 'actions/checkout@v7.0.1'
         - 'actions/create-github-app-token@v3.3.0'

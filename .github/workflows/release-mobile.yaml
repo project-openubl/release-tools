@@ -1,0 +1,80 @@
+name: Release xhandler-mobile
+
+# Releases the xhandler-mobile app. The app has its own version (VERSIONING.md), not xhandler's.
+#
+# 0. preflight: the branch exists, CI is required on it and passed on its head (hack/preflight.sh).
+# 1. tags xhandler-mobile (create-release) and waits for its release workflow, which builds the
+#    signed app and uploads it to the stores:
+#    - vX.Y.0-alpha.N, -beta.N, -rc.N: Google Play internal testing and TestFlight.
+#    - vX.Y.Z: a staged rollout on Google Play production (raise it in Play Console) and a
+#      submission for App Store review (released by hand once approved).
+#
+# Rerunning with the same version continues: the existing release is kept, a failed release
+# workflow is dispatched again from the default branch and builds already in the stores are
+# skipped. See README.md for the one-time setup.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version with the v, e.g. v1.1.0-alpha.1 or v1.0.0"
+        required: true
+        type: string
+      branch:
+        description: "Branch to release; empty: main (pre-releases). X.Y.Z: release-X.Y"
+        required: false
+        type: string
+      prev_version:
+        description: "Previous release, for the notes (defaults to the latest)"
+        required: false
+        type: string
+
+run-name: Release xhandler-mobile ${{ inputs.version }}
+
+concurrency:
+  group: release-mobile
+
+permissions:
+  contents: read
+
+env:
+  VERSION: ${{ inputs.version }}
+  BRANCH: ${{ inputs.branch }}
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    # The release workflow is waited for up to 45 minutes
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/create-github-app-token@v3.3.0
+        id: app-token
+        with:
+          app-id: ${{ vars.OPENUBL_BOT_ID }}
+          private-key: ${{ secrets.OPENUBL_BOT_KEY }}
+          owner: project-openubl
+          repositories: xhandler-mobile
+      - run: ./hack/preflight.sh "$BRANCH" project-openubl/xhandler-mobile
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+      - uses: ./create-release
+        with:
+          github_token: ${{ steps.app-token.outputs.token }}
+          version: ${{ inputs.version }}
+          prev_version: ${{ inputs.prev_version }}
+          repository: project-openubl/xhandler-mobile
+          ref: ${{ inputs.branch }}
+      - name: Wait for the xhandler-mobile release workflow
+        run: ./hack/wait-for-release-run.sh project-openubl/xhandler-mobile "$VERSION"
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+      - name: Summary
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          {
+            echo "# xhandler-mobile $VERSION"
+            echo
+            gh release view "$VERSION" --repo project-openubl/xhandler-mobile --json body --jq .body
+          } >> "$GITHUB_STEP_SUMMARY"
