@@ -13,6 +13,9 @@ name: Release xhandler
 #    proxy, PyPI, Maven Central).
 # 3. mobile: a pull request moves xhandler-mobile to the released crate; the app's store
 #    releases stay manual.
+# 4. website: once the libraries are published, a pull request moves project-openubl.github.io
+#    (the playground core and the versions in the docs) to the release; it is reviewed and merged
+#    by hand.
 #
 # Rerunning with the same version continues: existing releases are kept, a failed release
 # workflow is dispatched again from the default branch (so a fix to it applies) and published
@@ -198,6 +201,48 @@ jobs:
           ../release-tools/hack/open-pr.sh "deps/xhandler-$VERSION" "$(git rev-parse --abbrev-ref HEAD)" \
             "chore(deps): xhandler $crate_version" \
             "Moves to the xhandler [$VERSION](https://github.com/project-openubl/xhandler-rust/releases/tag/$VERSION) release on crates.io ([release-xhandler]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)). Store releases stay manual."
+
+  website:
+    # After the libraries: the docs only point to packages that are published
+    needs: [core, libraries]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          path: release-tools
+      - uses: actions/create-github-app-token@v3.3.0
+        id: app-token
+        with:
+          app-id: ${{ vars.OPENUBL_BOT_ID }}
+          private-key: ${{ secrets.OPENUBL_BOT_KEY }}
+          owner: project-openubl
+          repositories: project-openubl.github.io
+      - uses: actions/checkout@v7.0.1
+        with:
+          repository: project-openubl/project-openubl.github.io
+          token: ${{ steps.app-token.outputs.token }}
+          path: repo
+      - name: Pull request moving the website to the release
+        working-directory: repo
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          BOT: ${{ steps.app-token.outputs.app-slug }}[bot]
+        run: |
+          # The script pins the release's xhandler.wasm (SHA256SUMS) and updates the docs; it
+          # never moves the website to an older version (a patch of an older release branch)
+          notes=$(node scripts/set-xhandler-version.mjs "$VERSION")
+          echo "$notes"
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "The website already uses xhandler ${VERSION#v} or newer"
+            exit 0
+          fi
+          body="Moves the playground core and the versions in the docs to the xhandler [$VERSION](https://github.com/project-openubl/xhandler-rust/releases/tag/$VERSION) release ([release-xhandler]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID))."
+          warnings=$(sed -n 's/^warning: /- /p' <<< "$notes")
+          if [ -n "$warnings" ]; then
+            body+=$'\n\n**Review before merging:**\n'"$warnings"
+          fi
+          ../release-tools/hack/open-pr.sh "deps/xhandler-$VERSION" "$(git rev-parse --abbrev-ref HEAD)" \
+            "docs: xhandler ${VERSION#v}" "$body"
 
   summary:
     needs: [core, libraries]
