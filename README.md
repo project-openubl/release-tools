@@ -54,6 +54,10 @@ default branch instead, so a fix merged there applies to the existing tag. A tag
 for Go the tag is the publication (the Go module proxy keeps the first commit of a version
 forever). Don't create library releases by hand: release-xhandler checks the core before tagging.
 
+The libraries' `hack/core.sh` (`make sync CORE=`, `make verify-core`, `make verify-release`) is a
+copy of [`xhandler/core.sh`](./xhandler/core.sh). Change it here first, then copy it to the three
+libraries: their CI fails while a copy differs (`make verify-core-script`).
+
 One-time setup:
 
 - **Bot**: the openubl bot App (`OPENUBL_BOT_ID`, `OPENUBL_BOT_KEY`) installed on the five repositories
