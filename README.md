@@ -38,6 +38,12 @@ Run it from Actions → Release xhandler with the version, and the branch for a 
    release-tools checks it before tagging.
 1. A pull request moves [xhandler-mobile](https://github.com/project-openubl/xhandler-mobile) to the
    released crate. Its store releases stay manual.
+1. Once the libraries are published, a pull request moves the
+   [website](https://github.com/project-openubl/project-openubl.github.io) to the release: its
+   `npm run xhandler:set-version` pins the release's `xhandler.wasm` for the playground (from
+   `SHA256SUMS`) and updates the versions in the docs. It never moves the website to an older
+   version, and lists in the pull request what needs a person (a new Go major version path, the
+   alpha notice on the first stable release). It is reviewed and merged by hand.
 
 The tag is the version: each release workflow sets it at build time, so the branches keep a
 development version (Python's is the version of the core it carries). Versions are `vX.Y.Z` or
@@ -57,6 +63,7 @@ forever). Don't create library releases by hand: release-xhandler checks the cor
 One-time setup:
 
 - **Bot**: the openubl bot App (`OPENUBL_BOT_ID`, `OPENUBL_BOT_KEY`) installed on the five repositories
+  and on project-openubl.github.io (contents and pull requests, for the website pull request)
   with read and write access to contents, pull requests and actions (to rerun a failed release
   workflow). Branch protection or rulesets must let it merge the sync pull requests once CI passes
   (no required review for it) and create `v*` tags.
