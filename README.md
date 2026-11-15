@@ -40,10 +40,19 @@ Run it from Actions → Release xhandler with the version, and the branch for a 
    released crate. Its store releases stay manual.
 
 The tag is the version: each release workflow sets it at build time, so the branches keep a
-development version (Python's is the version of the core it carries). Rerunning with the same
-version continues where it stopped: existing releases are kept, failed release workflows rerun and
-published packages are skipped. Don't create library releases by hand: for Go the tag is the
-publication, and release-xhandler checks the core before tagging.
+development version (Python's is the version of the core it carries). Versions are `vX.Y.Z` or
+`vX.Y.Z-alpha.N`, `-beta.N`, `-rc.N`: the pre-releases every package manager agrees on.
+
+Each repository's `.github/workflows/release.yml` runs on `release: published` and on
+`workflow_dispatch` with a `tag` input, has `run-name: Release <tag>` (that is how release-xhandler
+finds its run) and skips what is already published, so running it twice is safe.
+
+**When something fails**, fix it and run release-xhandler again with the same version: existing
+releases are kept and published packages are skipped. A release workflow that failed is not
+re-run, since a re-run uses the workflow file of the tagged commit; it is dispatched from the
+default branch instead, so a fix merged there applies to the existing tag. A tag is never moved:
+for Go the tag is the publication (the Go module proxy keeps the first commit of a version
+forever). Don't create library releases by hand: release-xhandler checks the core before tagging.
 
 One-time setup:
 
@@ -53,10 +62,11 @@ One-time setup:
   (no required review for it) and create `v*` tags.
 - **Branches**: an X.Y.Z release needs the `release-X.Y` branch in every repository
   (`_cut-release-branches`).
-- **Environments**: `crates-io` in xhandler-rust and `pypi` in xhandler-python, ideally restricted to
-  `v*` tags.
-- **crates.io**: the first release creates the crates with a `CARGO_REGISTRY_TOKEN` secret in
-  xhandler-rust's `crates-io` environment. Then add a trusted publisher to `xhandler` and
+- **Environments**: `crates-io` in xhandler-rust and `pypi` in xhandler-python. If you restrict
+  their deployments, allow the `v*` tags and the default branch (a dispatched release workflow runs
+  from it).
+- **crates.io**: the first release creates the crates with a `CARGO_REGISTRY_TOKEN` secret (in
+  xhandler-rust's `crates-io` environment, or the organization's); its account owns the crates. Then add a trusted publisher to `xhandler` and
   `xhandler-cli` (repository `project-openubl/xhandler-rust`, workflow `release.yml`, environment
   `crates-io`) and delete the secret.
 - **PyPI**: a pending trusted publisher for the `xhandler` project (repository

@@ -10,10 +10,10 @@ inputs:
     description: Token with contents write on the repository. A GitHub App token, not GITHUB_TOKEN, so the release triggers workflows
     required: true
   version:
-    description: Semantic version with the v, e.g. v6.0.0 or v6.0.0-alpha.1 (pre-release)
+    description: vX.Y.Z or vX.Y.Z-alpha.N / -beta.N / -rc.N (pre-releases)
     required: true
   prev_version:
-    description: Previous release for the notes; defaults to the latest release
+    description: Previous release for the notes; defaults to the closest earlier version tagged in the target's history
     required: false
     default: ""
   repository:
@@ -35,12 +35,23 @@ runs:
         PREV_VERSION: ${{ inputs.prev_version }}
         REF: ${{ inputs.ref }}
       run: |
-        if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$ ]]; then
-          echo "::error::$VERSION is not a semantic version with the v (e.g. v6.0.0-alpha.1)"
+        # The versions every package manager agrees on (Python's PEP 440 has no other pre-releases)
+        version_re='^v[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta|rc)\.[0-9]+)?$'
+        if [[ ! "$VERSION" =~ $version_re ]]; then
+          echo "::error::$VERSION is not vX.Y.Z or vX.Y.Z-alpha.N, -beta.N, -rc.N"
           exit 1
         fi
 
-        if gh release view "$VERSION" >/dev/null 2>&1; then
+        # exists <api path>: 0 if found, 1 if not (404); other errors stop the step
+        exists() {
+          local out
+          if out=$(gh api "$1" 2>&1); then return 0; fi
+          [[ "$out" == *"HTTP 404"* ]] && return 1
+          echo "::error::gh api $1: $out"
+          exit 1
+        }
+
+        if exists "repos/$GH_REPO/releases/tags/$VERSION"; then
           echo "::notice::$GH_REPO $VERSION already exists"
           exit 0
         fi
@@ -49,21 +60,39 @@ runs:
         sha=$(gh api "repos/$GH_REPO/commits/$ref" --jq .sha)
 
         # A tag without a release: gh release create would use it whatever commit it points to
-        if tagged=$(gh api "repos/$GH_REPO/commits/refs/tags/$VERSION" --jq .sha 2>/dev/null) && [ "$tagged" != "$sha" ]; then
-          echo "::error::The tag $VERSION exists in $GH_REPO at $tagged, not at $ref ($sha)"
-          exit 1
+        if exists "repos/$GH_REPO/git/ref/tags/$VERSION"; then
+          tagged=$(gh api "repos/$GH_REPO/commits/refs/tags/$VERSION" --jq .sha)
+          if [ "$tagged" != "$sha" ]; then
+            echo "::error::The tag $VERSION exists in $GH_REPO at $tagged, not at $ref ($sha)"
+            exit 1
+          fi
         fi
 
+        tags=$(gh api --paginate "repos/$GH_REPO/tags" --jq '.[].name' | grep -E "$version_re" | grep -vxF "$VERSION" || true)
+
+        # The previous release: the highest earlier version whose tag is in the target's history
+        # (a patch on release-X.Y follows X.Y.Z-1, not a newer X.Y+1 release)
         prev="$PREV_VERSION"
-        if [ -z "$prev" ]; then
-          prev=$(gh api "repos/$GH_REPO/releases?per_page=1" --jq '.[0].tag_name // empty')
+        if [ -z "$prev" ] && [ -n "$tags" ]; then
+          for candidate in $(printf '%s\n' $tags "$VERSION" | sort -V | sed "/^${VERSION//./\\.}\$/q" | sed '$d' | tac | head -20); do
+            status=$(gh api "repos/$GH_REPO/compare/$candidate...$sha" --jq .status)
+            if [ "$status" = ahead ] || [ "$status" = identical ]; then
+              prev=$candidate
+              break
+            fi
+          done
         fi
         args=(-f tag_name="$VERSION" -f target_commitish="$sha")
         [ -n "$prev" ] && args+=(-f previous_tag_name="$prev")
-        gh api -X POST "repos/$GH_REPO/releases/generate-notes" "${args[@]}" --jq .body > notes.md
+        gh api -X POST "repos/$GH_REPO/releases/generate-notes" "${args[@]}" --jq .body > "$RUNNER_TEMP/notes.md"
 
-        prerelease=()
-        [[ "$VERSION" == *-* ]] && prerelease=(--prerelease)
-        gh release create "$VERSION" --target "$sha" --title "$VERSION" --notes-file notes.md "${prerelease[@]}"
-        rm notes.md
-        echo "::notice::Released $GH_REPO $VERSION ($sha)"
+        # Pre-releases are never "Latest"; a stable release only when it is the highest version
+        if [[ "$VERSION" == *-* ]]; then
+          kind=(--prerelease)
+        elif [ "$(printf '%s\n' $(grep -v -e "-" <<<"$tags") "$VERSION" | sort -V | tail -1)" = "$VERSION" ]; then
+          kind=(--latest)
+        else
+          kind=(--latest=false)
+        fi
+        gh release create "$VERSION" --target "$sha" --title "$VERSION" --notes-file "$RUNNER_TEMP/notes.md" "${kind[@]}"
+        echo "::notice::Released $GH_REPO $VERSION ($sha), notes since ${prev:-the beginning}"

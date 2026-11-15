@@ -1,31 +1,60 @@
 #!/usr/bin/env bash
-# Waits for the release workflow (release.yml) that a published release started in a
-# repository, and fails if it fails.
+# Waits for the release workflow (release.yml, run-name "Release <tag>") of a repository's
+# release <tag>, and fails if it fails.
 #
 #   wait-for-release-run.sh <owner/repo> <tag>
 #
-# A run that already failed (e.g. on a rerun of release-xhandler) is rerun. Needs GH_TOKEN with
-# actions read and write on the repository.
+# Only runs created after the release count, so an older run for a deleted release of the same
+# tag is ignored. A failed run is not re-run: a re-run uses the workflow file of the tagged
+# commit, so a bug in it would just repeat. Instead the workflow is dispatched once from the
+# default branch (`-f tag=<tag>`), which builds the same tag with the current workflow file.
+#
+# Waits up to 45 minutes, inside the 1-hour life of the GitHub App token: rerunning
+# release-xhandler continues waiting. Needs GH_TOKEN with actions read and write.
 set -euo pipefail
 repo=$1 tag=$2
 
-# The run of a `release` event has the tag as its branch; it takes a few seconds to appear
-for _ in $(seq 60); do
-  run=$(gh run list --repo "$repo" --workflow release.yml --event release --branch "$tag" \
-    --limit 1 --json databaseId --jq '.[0].databaseId // empty')
-  [ -n "$run" ] && break
-  sleep 10
+since=$(gh api "repos/$repo/releases/tags/$tag" --jq .created_at)
+default_branch=$(gh api "repos/$repo" --jq .default_branch)
+
+# The newest run of release.yml for <tag> created at or after <time>, as "<id> <status> <conclusion>"
+latest_run() {
+  gh run list --repo "$repo" --workflow release.yml --limit 50 \
+    --json databaseId,displayTitle,createdAt,status,conclusion \
+    --jq "[.[] | select(.displayTitle == \"Release $tag\" and .createdAt >= \"$1\")]
+          | sort_by(.createdAt) | last // empty | \"\(.databaseId) \(.status) \(.conclusion)\""
+}
+
+dispatched_at=""
+waiting_since=$SECONDS
+deadline=$((SECONDS + 45 * 60))
+while [ "$SECONDS" -lt "$deadline" ]; do
+  found=$(latest_run "${dispatched_at:-$since}")
+  read -r run status conclusion <<<"$found" || true
+
+  if [ -z "$found" ]; then
+    # The run of a published release or a dispatch takes a few seconds to appear
+    if [ $((SECONDS - waiting_since)) -gt 300 ]; then
+      echo "::error::No release workflow run for $repo $tag"
+      exit 1
+    fi
+  elif [ "$status" != completed ]; then
+    :
+  elif [ "$conclusion" = success ]; then
+    echo "$repo $tag released: https://github.com/$repo/actions/runs/$run"
+    exit 0
+  elif [ -n "$dispatched_at" ]; then
+    echo "::error::The release workflow of $repo $tag failed again ($conclusion): https://github.com/$repo/actions/runs/$run"
+    exit 1
+  else
+    echo "The release workflow of $repo $tag ended with $conclusion (https://github.com/$repo/actions/runs/$run): dispatching it from $default_branch"
+    # A minute early, in case the runner's clock is ahead of GitHub's
+    dispatched_at=$(date -u -d '-1 minute' +%Y-%m-%dT%H:%M:%SZ)
+    gh workflow run release.yml --repo "$repo" --ref "$default_branch" -f tag="$tag"
+    waiting_since=$SECONDS
+  fi
+  sleep 30
 done
-if [ -z "${run:-}" ]; then
-  echo "::error::No release workflow run for $repo $tag"
-  exit 1
-fi
 
-if [ "$(gh run view "$run" --repo "$repo" --json conclusion --jq .conclusion)" = failure ]; then
-  echo "Rerunning the failed jobs of https://github.com/$repo/actions/runs/$run"
-  gh run rerun "$run" --repo "$repo" --failed
-  sleep 10
-fi
-
-echo "Waiting for https://github.com/$repo/actions/runs/$run"
-gh run watch "$run" --repo "$repo" --exit-status --interval 30 >/dev/null
+echo "::error::The release workflow of $repo $tag is still running after 45 minutes: rerun release-xhandler to keep waiting"
+exit 1
