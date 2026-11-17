@@ -115,6 +115,60 @@ the bot, and the store secrets in xhandler-mobile. `_cut-release-branches` doesn
 `release-X.Y` branches, since its versions are not xhandler's: create them in xhandler-mobile
 (`git push origin main:release-X.Y`).
 
+## Releasing searchpe
+
+[`release-searchpe`](./.github/workflows/release-searchpe.yaml) releases
+[searchpe](https://github.com/project-openubl/searchpe) and its operator. searchpe has its own version,
+with the [VERSIONING.md](./VERSIONING.md) rules: `vX.Y.0-alpha.N` from `main`, `vX.Y.Z` from
+`release-X.Y`. Run it from Actions → Release searchpe with the version and, for a stable release, the
+branch.
+
+1. [`preflight.sh`](./hack/preflight.sh) checks searchpe: the branch exists, CI is required on it and
+   passed on its head.
+1. [`create-release`](./create-release/action.yml) tags it and publishes the GitHub release, which
+   runs searchpe's `release.yml`. release-searchpe waits for that workflow
+   ([`wait-for-release-run.sh`](./hack/wait-for-release-run.sh)), in two rounds of 45 minutes with a
+   new token each, since the native builds can take longer than one.
+1. searchpe's release workflow sets the tag's version (the poms on `main` keep a development version)
+   and publishes:
+   - the native images `quay.io/projectopenubl/searchpe` and `searchpe-operator`, for amd64 and arm64,
+     as `vX.Y.Z`. `latest` and `vX` move only for the highest stable release (of its major for `vX`).
+   - the Helm chart, `oci://ghcr.io/project-openubl/charts/searchpe` with version `X.Y.Z`.
+   - release assets: the JVM distribution, the OpenAPI schema, the operator bundle, the chart and
+     `SHA256SUMS`.
+1. For a stable release, [`operatorhub-pr.sh`](./hack/operatorhub-pr.sh) opens a pull request with the
+   release's bundle to the [Kubernetes](https://github.com/k8s-operatorhub/community-operators) and the
+   [OpenShift](https://github.com/redhat-openshift-ecosystem/community-operators-prod) catalogs, from
+   our forks of them. It sets `spec.replaces` to the catalog's previous version and, for OpenShift,
+   `com.redhat.openshift.versions`. The catalogs merge the pull request once their tests pass, since its
+   author is a reviewer in the operator's `ci.yaml`. Pre-releases stay out of the catalogs, and so do
+   patches of an older line (lower than the catalog's latest version): a channel has a single head.
+   While the pull request of an earlier version is open, the catalog's job fails: merge it, then rerun.
+
+Rerunning release-searchpe with the same version continues: preflight is skipped since the release
+exists, a failed release workflow is dispatched again from `main`, pushed images are kept, the assets
+are replaced and a catalog pull request is opened once (none when the catalog has the version).
+
+One-time setup:
+
+- **Bot**: the openubl bot App on searchpe with contents (tags and releases) and actions (to dispatch a
+  failed release workflow) read and write. `v*` tags allowed for the bot.
+- **CI**: required checks on searchpe's `main` and `release-X.Y` branches (preflight checks them).
+  `_cut-release-branches` doesn't create searchpe's `release-X.Y` branches, since its versions are not
+  xhandler's: `git push origin main:release-X.Y` in searchpe.
+- **Quay**: `QUAYIO_USERNAME` and `QUAYIO_PASSWORD` (organization secrets) can push to
+  `quay.io/projectopenubl/searchpe` and `searchpe-operator`.
+- **ghcr.io**: after the first release, make the `charts/searchpe` package of the organization public
+  and give searchpe write access to it, if GitHub did not.
+- **OperatorHub**: an `OPERATORHUB_TOKEN` secret in release-tools, a classic token (`public_repo`,
+  `workflow`) of a user listed in `reviewers` of the operator's `ci.yaml`: GitHub App tokens can't open
+  pull requests in repositories outside the organization, and the catalogs only merge by themselves for
+  reviewers. The forks
+  ([community-operators](https://github.com/project-openubl/community-operators),
+  [community-operators-prod](https://github.com/project-openubl/community-operators-prod)) must exist;
+  their default branch is reset to the catalog's on every release. The first pull request to the
+  OpenShift catalog adds the operator, so its maintainers review that one.
+
 ## Reusable Workflows
 
 ### [auto-merge-dependabot](./.github/workflows/auto-merge-dependabot.yaml)

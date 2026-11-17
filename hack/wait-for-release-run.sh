@@ -10,7 +10,11 @@
 # default branch (`-f tag=<tag>`), which builds the same tag with the current workflow file.
 #
 # Waits up to 45 minutes, inside the 1-hour life of the GitHub App token: rerunning
-# release-xhandler continues waiting. Needs GH_TOKEN with actions read and write.
+# the release continues waiting. Needs GH_TOKEN with actions read and write.
+#
+# For a release workflow that can take longer, call it again with a new token: when it gives up,
+# it writes timed_out=true and dispatched_at to $GITHUB_OUTPUT, and DISPATCHED_AT=<dispatched_at>
+# continues from there (without dispatching the workflow a second time).
 set -euo pipefail
 repo=$1 tag=$2
 
@@ -25,7 +29,7 @@ latest_run() {
           | sort_by(.createdAt) | last // empty | \"\(.databaseId) \(.status) \(.conclusion)\""
 }
 
-dispatched_at=""
+dispatched_at=${DISPATCHED_AT:-}
 waiting_since=$SECONDS
 deadline=$((SECONDS + 45 * 60))
 while [ "$SECONDS" -lt "$deadline" ]; do
@@ -57,4 +61,8 @@ while [ "$SECONDS" -lt "$deadline" ]; do
 done
 
 echo "::error::The release workflow of $repo $tag is still running after 45 minutes: rerun the release to keep waiting"
+if [ -n "${GITHUB_OUTPUT:-}" ]; then
+  echo "timed_out=true" >> "$GITHUB_OUTPUT"
+  echo "dispatched_at=$dispatched_at" >> "$GITHUB_OUTPUT"
+fi
 exit 1
