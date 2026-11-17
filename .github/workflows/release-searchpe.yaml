@@ -1,0 +1,161 @@
+name: Release searchpe
+
+# Releases searchpe (VERSIONING.md: vX.Y.0-alpha.N from main, vX.Y.Z from release-X.Y).
+#
+# 0. preflight: the branch exists, CI is required on it and passed on its head (hack/preflight.sh).
+# 1. tags searchpe (create-release) and waits for its release workflow: the native images for
+#    amd64 and arm64 on quay.io, the Helm chart on ghcr.io and the release assets (distribution,
+#    operator bundle, chart, SHA256SUMS).
+# 2. operatorhub, stable releases only: from the bundle attached to the release, a pull request
+#    to the Kubernetes (k8s-operatorhub/community-operators) and the OpenShift
+#    (redhat-openshift-ecosystem/community-operators-prod) catalogs (hack/operatorhub-pr.sh).
+#    The catalogs merge them once their tests pass, since the author is a reviewer in ci.yaml.
+#
+# Rerunning with the same version continues: the existing release is kept, a failed release
+# workflow is dispatched again from the default branch, pushed images are kept and the catalog
+# pull requests are opened once. See README.md for the one-time setup.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version with the v, e.g. v4.2.0-alpha.1 or v4.2.0"
+        required: true
+        type: string
+      branch:
+        description: "Branch to release; empty: main (pre-releases). X.Y.Z: release-X.Y"
+        required: false
+        type: string
+      prev_version:
+        description: "Previous release, for the notes (defaults to the latest)"
+        required: false
+        type: string
+
+run-name: Release searchpe ${{ inputs.version }}
+
+concurrency:
+  group: release-searchpe
+
+permissions:
+  contents: read
+
+env:
+  VERSION: ${{ inputs.version }}
+  BRANCH: ${{ inputs.branch }}
+  REPO: project-openubl/searchpe
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    # Native builds for two architectures: the release workflow is waited for in two rounds of 45
+    # minutes, each with its own token (an App token lasts an hour)
+    timeout-minutes: 110
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/create-github-app-token@v3.3.0
+        id: app-token
+        with:
+          app-id: ${{ vars.OPENUBL_BOT_ID }}
+          private-key: ${{ secrets.OPENUBL_BOT_KEY }}
+          owner: project-openubl
+          repositories: searchpe
+      # A rerun continues the existing release whatever the branch's head is now
+      - name: Preflight
+        run: |
+          if gh api "repos/$REPO/releases/tags/$VERSION" >/dev/null 2>&1; then
+            echo "::notice::$REPO $VERSION is already released: continuing it"
+            exit 0
+          fi
+          ./hack/preflight.sh "$BRANCH" "$REPO"
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+      - uses: ./create-release
+        with:
+          github_token: ${{ steps.app-token.outputs.token }}
+          version: ${{ inputs.version }}
+          prev_version: ${{ inputs.prev_version }}
+          repository: project-openubl/searchpe
+          ref: ${{ inputs.branch }}
+      - name: Wait for the searchpe release workflow
+        id: wait
+        run: ./hack/wait-for-release-run.sh "$REPO" "$VERSION"
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+      - if: ${{ steps.wait.outputs.timed_out == 'true' }}
+        uses: actions/create-github-app-token@v3.3.0
+        id: wait-token
+        with:
+          app-id: ${{ vars.OPENUBL_BOT_ID }}
+          private-key: ${{ secrets.OPENUBL_BOT_KEY }}
+          owner: project-openubl
+          repositories: searchpe
+      - name: Keep waiting for the searchpe release workflow
+        if: ${{ steps.wait.outcome == 'failure' }}
+        run: |
+          if [ "$TIMED_OUT" != true ]; then
+            echo "::error::The searchpe release workflow failed (see the step above)"
+            exit 1
+          fi
+          ./hack/wait-for-release-run.sh "$REPO" "$VERSION"
+        env:
+          TIMED_OUT: ${{ steps.wait.outputs.timed_out }}
+          DISPATCHED_AT: ${{ steps.wait.outputs.dispatched_at }}
+          GH_TOKEN: ${{ steps.wait-token.outputs.token }}
+
+  operatorhub:
+    needs: release
+    # Pre-releases stay out of the catalogs: a bundle there is replaced by the next one only
+    if: ${{ !contains(inputs.version, '-') }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - catalog: k8s-operatorhub/community-operators
+            fork: project-openubl/community-operators
+            openshift_versions: ""
+          - catalog: redhat-openshift-ecosystem/community-operators-prod
+            fork: project-openubl/community-operators-prod
+            # The oldest OpenShift the bundle is offered to
+            openshift_versions: v4.16
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Bundle of the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download "$VERSION" --repo "$REPO" --pattern "searchpe-operator-bundle-${VERSION#v}.tar.gz"
+      - name: Pull request to ${{ matrix.catalog }}
+        env:
+          GH_TOKEN: ${{ secrets.OPERATORHUB_TOKEN }}
+          CATALOG: ${{ matrix.catalog }}
+          FORK: ${{ matrix.fork }}
+          OPENSHIFT_VERSIONS: ${{ matrix.openshift_versions }}
+          # For a catalog without searchpe-operator: the users whose pull requests merge by themselves
+          # (OPERATORHUB_TOKEN's user must be one)
+          REVIEWERS: carlosthe19916
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::The OPERATORHUB_TOKEN secret is missing (see README.md)"
+            exit 1
+          fi
+          ./hack/operatorhub-pr.sh "$CATALOG" "$FORK" searchpe-operator "${VERSION#v}" \
+            "searchpe-operator-bundle-${VERSION#v}.tar.gz"
+
+  summary:
+    needs: [release, operatorhub]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          OPERATORHUB: ${{ needs.operatorhub.result }}
+        run: |
+          {
+            echo "# searchpe $VERSION"
+            echo
+            gh release view "$VERSION" --repo "$REPO" --json body --jq .body 2>/dev/null || echo "_Not released_"
+            echo
+            echo "OperatorHub pull requests: $OPERATORHUB"
+          } >> "$GITHUB_STEP_SUMMARY"
