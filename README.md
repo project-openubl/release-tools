@@ -131,11 +131,10 @@ branch.
    new token each, since the native builds can take longer than one.
 1. searchpe's release workflow sets the tag's version (the poms on `main` keep a development version)
    and publishes:
-   - the native images `quay.io/projectopenubl/searchpe` and `searchpe-operator`, for amd64 and arm64,
-     as `vX.Y.Z`. `latest` and `vX` move only for the highest stable release (of its major for `vX`).
-   - the Helm chart, `oci://ghcr.io/project-openubl/charts/searchpe` with version `X.Y.Z`.
-   - release assets: the JVM distribution, the OpenAPI schema, the operator bundle, the chart and
-     `SHA256SUMS`.
+   - the native images `ghcr.io/project-openubl/searchpe/searchpe` and `searchpe-operator`, for amd64
+     and arm64, as `vX.Y.Z`. `latest` and `vX` move only for the highest stable release (of its major
+     for `vX`).
+   - release assets: the JVM distribution, the OpenAPI schema, the operator bundle and `SHA256SUMS`.
 1. For a stable release, [`operatorhub-pr.sh`](./hack/operatorhub-pr.sh) opens a pull request with the
    release's bundle to the [Kubernetes](https://github.com/k8s-operatorhub/community-operators) and the
    [OpenShift](https://github.com/redhat-openshift-ecosystem/community-operators-prod) catalogs, from
@@ -156,10 +155,9 @@ One-time setup:
 - **CI**: required checks on searchpe's `main` and `release-X.Y` branches (preflight checks them).
   `_cut-release-branches` doesn't create searchpe's `release-X.Y` branches, since its versions are not
   xhandler's: `git push origin main:release-X.Y` in searchpe.
-- **Quay**: `QUAYIO_USERNAME` and `QUAYIO_PASSWORD` (organization secrets) can push to
-  `quay.io/projectopenubl/searchpe` and `searchpe-operator`.
-- **ghcr.io**: after the first release, make the `charts/searchpe` package of the organization public
-  and give searchpe write access to it, if GitHub did not.
+- **ghcr.io**: searchpe's workflows push the images with their `GITHUB_TOKEN` to the public
+  `searchpe/searchpe` and `searchpe/searchpe-operator` packages, which its Snapshots workflow created.
+  If a push is denied (403), give searchpe write access in the package settings (Manage Actions access).
 - **OperatorHub**: an `OPERATORHUB_TOKEN` secret in release-tools, a classic token (`public_repo`,
   `workflow`) of a user listed in `reviewers` of the operator's `ci.yaml`: GitHub App tokens can't open
   pull requests in repositories outside the organization, and the catalogs only merge by themselves for
