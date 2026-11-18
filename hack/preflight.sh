@@ -2,7 +2,8 @@
 # Checks, before release-xhandler tags anything, that every repository can be released from
 # <branch> (empty: each repository's default branch): the branch exists, CI is required on it
 # (the sync pull requests merge on it) and every required check passed on its head (which is
-# what gets tagged). Other checks on the head, e.g. a failed release run, don't count.
+# what gets tagged). Other checks on the head, e.g. the jobs of a release run (release.yml), don't
+# count.
 # Reports every problem, not just the first.
 #
 #   preflight.sh <branch> <owner/repo>...
@@ -85,13 +86,21 @@ for repo in "$@"; do
   }
   [ "$auto_merge" = true ] || fail "$repo does not allow auto-merge"
 
-  # The latest run of each check on the head, as "<name>\t<status>\t<conclusion>"
   head=$(api "repos/$repo/commits/$branch" --jq .sha) || {
     unreadable "$repo $branch head"
     continue
   }
+  # The release workflow's jobs are checks on the head too, once it has been tagged, and can
+  # share a name with a required check (xhandler-mobile's android and ios): they don't count
+  release_suites=$(api --paginate "repos/$repo/actions/runs?head_sha=$head&per_page=100" \
+    --jq '.workflow_runs[] | select(.path == ".github/workflows/release.yml") | .check_suite_id') || {
+    unreadable "$repo $branch workflow runs"
+    continue
+  }
+  # The latest run of each other check on the head, as "<name>\t<status>\t<conclusion>"
   checks=$(gh api --paginate --slurp "repos/$repo/commits/$head/check-runs" 2>&1 |
-    jq -r '[.[].check_runs[]] | group_by(.name)[] | max_by(.started_at) | [.name, .status, .conclusion // ""] | @tsv') || {
+    jq -r --argjson skip "$(jq -s . <<<"$release_suites")" '[.[].check_runs[] | select(.check_suite.id as $id | $skip | index($id) | not)]
+      | group_by(.name)[] | max_by(.started_at) | [.name, .status, .conclusion // ""] | @tsv') || {
     echo "$checks" >&2
     unreadable "$repo $branch checks"
     continue
