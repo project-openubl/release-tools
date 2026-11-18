@@ -47,7 +47,7 @@ workflows:
     '.github/workflows/release-mobile.yaml':
         - 'actions/checkout@v7.0.1'
         - 'actions/create-github-app-token@v3.3.0'
-    '.github/workflows/release-searchpe.yaml':
+    '.github/workflows/release-xhandler-service.yaml':
         - 'actions/checkout@v7.0.1'
         - 'actions/create-github-app-token@v3.3.0'
     '.github/workflows/release-xhandler.yaml':

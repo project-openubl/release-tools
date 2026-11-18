@@ -1,11 +1,13 @@
-name: Release searchpe
+name: Release xhandler-service
 
-# Releases searchpe (VERSIONING.md: vX.Y.0-alpha.N from main, vX.Y.Z from release-X.Y).
+# Releases xhandler-service, the monorepo of searchpe, xhandler-service, the single UI and the
+# operator (VERSIONING.md: vX.Y.0-alpha.N from main, vX.Y.Z from release-X.Y).
 #
 # 0. preflight: the branch exists, CI is required on it and passed on its head (hack/preflight.sh).
-# 1. tags searchpe (create-release) and waits for its release workflow: the native images for
-#    amd64 and arm64 on quay.io, the Helm chart on ghcr.io and the release assets (distribution,
-#    operator bundle, chart, SHA256SUMS).
+# 1. tags xhandler-service (create-release) and waits for its release workflow: the images
+#    searchpe (native), searchpe-operator, xhandler-service, xhandler-engine and xhandler-ui for
+#    amd64 and arm64 on ghcr.io/project-openubl/xhandler-service, and the release assets
+#    (searchpe distribution, OpenAPI schema, operator bundle, SHA256SUMS).
 # 2. operatorhub, stable releases only: from the bundle attached to the release, a pull request
 #    to the Kubernetes (k8s-operatorhub/community-operators) and the OpenShift
 #    (redhat-openshift-ecosystem/community-operators-prod) catalogs (hack/operatorhub-pr.sh).
@@ -31,10 +33,10 @@ on:
         required: false
         type: string
 
-run-name: Release searchpe ${{ inputs.version }}
+run-name: Release xhandler-service ${{ inputs.version }}
 
 concurrency:
-  group: release-searchpe
+  group: release-xhandler-service
 
 permissions:
   contents: read
@@ -42,7 +44,7 @@ permissions:
 env:
   VERSION: ${{ inputs.version }}
   BRANCH: ${{ inputs.branch }}
-  REPO: project-openubl/searchpe
+  REPO: project-openubl/xhandler-service
 
 jobs:
   release:
@@ -58,7 +60,7 @@ jobs:
           app-id: ${{ vars.OPENUBL_BOT_ID }}
           private-key: ${{ secrets.OPENUBL_BOT_KEY }}
           owner: project-openubl
-          repositories: searchpe
+          repositories: xhandler-service
       # A rerun continues the existing release whatever the branch's head is now
       - name: Preflight
         run: |
@@ -74,9 +76,9 @@ jobs:
           github_token: ${{ steps.app-token.outputs.token }}
           version: ${{ inputs.version }}
           prev_version: ${{ inputs.prev_version }}
-          repository: project-openubl/searchpe
+          repository: project-openubl/xhandler-service
           ref: ${{ inputs.branch }}
-      - name: Wait for the searchpe release workflow
+      - name: Wait for the xhandler-service release workflow
         id: wait
         run: ./hack/wait-for-release-run.sh "$REPO" "$VERSION"
         continue-on-error: true
@@ -89,12 +91,12 @@ jobs:
           app-id: ${{ vars.OPENUBL_BOT_ID }}
           private-key: ${{ secrets.OPENUBL_BOT_KEY }}
           owner: project-openubl
-          repositories: searchpe
-      - name: Keep waiting for the searchpe release workflow
+          repositories: xhandler-service
+      - name: Keep waiting for the xhandler-service release workflow
         if: ${{ steps.wait.outcome == 'failure' }}
         run: |
           if [ "$TIMED_OUT" != true ]; then
-            echo "::error::The searchpe release workflow failed (see the step above)"
+            echo "::error::The xhandler-service release workflow failed (see the step above)"
             exit 1
           fi
           ./hack/wait-for-release-run.sh "$REPO" "$VERSION"
@@ -153,7 +155,7 @@ jobs:
           OPERATORHUB: ${{ needs.operatorhub.result }}
         run: |
           {
-            echo "# searchpe $VERSION"
+            echo "# xhandler-service $VERSION"
             echo
             gh release view "$VERSION" --repo "$REPO" --json body --jq .body 2>/dev/null || echo "_Not released_"
             echo
