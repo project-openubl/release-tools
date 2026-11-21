@@ -32,7 +32,7 @@ workflows:
     '.github/workflows/cherry-pick.yaml':
         - 'actions/checkout@v7.0.1'
         - 'actions/github-script@v9.0.0'
-        - 'korthout/backport-action@v4.7.1'
+        - 'korthout/backport-action@v5.0.0'
         - 'peter-murray/workflow-application-token-action@v4.0.1'
     '.github/workflows/generate-changelog.yml':
         - 'actions/checkout@v7.0.1'
@@ -106,9 +106,9 @@ dependencies:
         commit: 'sha1-ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d'
         owner_id: 1588572
         repo_id: 265601040
-    'korthout/backport-action@v4.7.1':
-        ref: 'v4.7.1'
-        commit: 'sha1-0ebd44f9c79a4a0a171200dcdcceec3ed9ca732f'
+    'korthout/backport-action@v5.0.0':
+        ref: 'v5.0.0'
+        commit: 'sha1-ad272ff24e4a8593bf18a951a154ae6af93b26b8'
         owner_id: 3511026
         repo_id: 312027768
     'peter-murray/workflow-application-token-action@v4.0.1':
