@@ -46,7 +46,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2.9.3
       - name: Get Token
         id: get_workflow_token
-        uses: peter-murray/workflow-application-token-action@v4.0.1
+        uses: peter-murray/workflow-application-token-action@v5.1.1
         with:
           application_id: ${{ vars.OPENUBL_BOT_ID }}
           application_private_key: ${{ secrets.OPENUBL_BOT_KEY }}
@@ -69,7 +69,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2.9.3
       - name: Get Token
         id: get_workflow_token
-        uses: peter-murray/workflow-application-token-action@v4.0.1
+        uses: peter-murray/workflow-application-token-action@v5.1.1
         with:
           application_id: ${{ vars.OPENUBL_BOT_ID }}
           application_private_key: ${{ secrets.OPENUBL_BOT_KEY }}

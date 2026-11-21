@@ -6,7 +6,7 @@ workflows:
     '.github/workflows/_auto-merge-dependabot.yaml': []
     '.github/workflows/_cut-release-branches.yaml':
         - 'actions/checkout@v7.0.1'
-        - 'peter-murray/workflow-application-token-action@v4.0.1'
+        - 'peter-murray/workflow-application-token-action@v5.1.1'
     '.github/workflows/_issues.yaml': []
     '.github/workflows/_main.yaml':
         - 'actions/checkout@v7.0.1'
@@ -16,7 +16,7 @@ workflows:
     '.github/workflows/_push-main.yml':
         - 'actions/checkout@v7.0.1'
         - 'dorny/paths-filter@v4.0.3'
-        - 'peter-murray/workflow-application-token-action@v4.0.1'
+        - 'peter-murray/workflow-application-token-action@v5.1.1'
         - 'swatinem/rust-cache@v2.9.3'
     '.github/workflows/_verifyPR.yml': []
     '.github/workflows/auto-merge-dependabot.yaml':
@@ -33,17 +33,17 @@ workflows:
         - 'actions/checkout@v7.0.1'
         - 'actions/github-script@v9.0.0'
         - 'korthout/backport-action@v5.0.0'
-        - 'peter-murray/workflow-application-token-action@v4.0.1'
+        - 'peter-murray/workflow-application-token-action@v5.1.1'
     '.github/workflows/generate-changelog.yml':
         - 'actions/checkout@v7.0.1'
         - 'actions/upload-artifact@v7.0.2'
     '.github/workflows/reconcile-issue-comment.yaml':
         - 'actions/github-script@v9.0.0'
-        - 'peter-murray/workflow-application-token-action@v4.0.1'
+        - 'peter-murray/workflow-application-token-action@v5.1.1'
     '.github/workflows/reconcile-issue.yaml':
         - 'actions/add-to-project@v2.0.1'
         - 'actions/github-script@v9.0.0'
-        - 'peter-murray/workflow-application-token-action@v4.0.1'
+        - 'peter-murray/workflow-application-token-action@v5.1.1'
     '.github/workflows/release-mobile.yaml':
         - 'actions/checkout@v7.0.1'
         - 'actions/create-github-app-token@v3.3.0'
@@ -111,9 +111,9 @@ dependencies:
         commit: 'sha1-ad272ff24e4a8593bf18a951a154ae6af93b26b8'
         owner_id: 3511026
         repo_id: 312027768
-    'peter-murray/workflow-application-token-action@v4.0.1':
-        ref: 'v4.0.1'
-        commit: 'sha1-d17e3a9a36850ea89f35db16c1067dd2b68ee343'
+    'peter-murray/workflow-application-token-action@v5.1.1':
+        ref: 'v5.1.1'
+        commit: 'sha1-dad2b81e50ce3edeb5f3b7ffbd79f731368bd668'
         owner_id: 681306
         repo_id: 283244866
     'redhat-actions/buildah-build@main':
